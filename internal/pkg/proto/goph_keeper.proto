@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package goph_keeper;
+import "google/protobuf/empty.proto";
+
+option go_package = "pkg/proto";
+
+message UserData {
+  string login = 1;
+  string password = 2;
+}
+
+message LoginResult {
+  bool success = 1;
+}
+
+message Key {
+  string key = 1;  // Unique entity ID, is used for set, get and delete operations
+}
+
+message LoginPassword {
+  string login = 1;
+  string password = 2;
+  string meta = 3;
+  string key = 4;
+}
+
+message CardDetails {
+  string number = 1;
+  string expiration = 2;
+  string name = 3;
+  string surname = 4;
+  int32 cvv = 5;
+  string meta = 6;
+  string key = 7;
+}
+
+message Text {
+  string data = 1;
+  string meta = 2;
+  string key = 3;
+}
+
+message Binary {
+  bytes data = 1;
+  string meta = 2;
+  string key = 3;
+}
+
+service GophKeeper {
+  rpc Register(UserData) returns (LoginResult);
+  rpc Login(UserData) returns (LoginResult);
+  rpc AddLoginPassword(LoginPassword) returns (google.protobuf.Empty);
+  rpc GetLoginPassword(Key) returns (LoginPassword);
+  rpc DeleteLoginPassword(Key) returns (google.protobuf.Empty);
+  rpc AddCard(CardDetails) returns (google.protobuf.Empty);
+  rpc GetCard(Key) returns (CardDetails);
+  rpc DeleteCard(Key) returns (google.protobuf.Empty);
+  rpc AddText(stream Text) returns (google.protobuf.Empty);
+  rpc GetText(Key) returns (stream Text);
+  rpc DeleteText(Key) returns (google.protobuf.Empty);
+  rpc AddBinary(stream Binary) returns (google.protobuf.Empty);
+  rpc GetBinary(Key) returns (stream Binary);
+  rpc DeleteBinary(Key) returns (google.protobuf.Empty);
+}

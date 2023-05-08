@@ -23,15 +23,19 @@ const (
 	GophKeeper_Register_FullMethodName            = "/goph_keeper.GophKeeper/Register"
 	GophKeeper_Login_FullMethodName               = "/goph_keeper.GophKeeper/Login"
 	GophKeeper_AddLoginPassword_FullMethodName    = "/goph_keeper.GophKeeper/AddLoginPassword"
+	GophKeeper_UpdateLoginPassword_FullMethodName = "/goph_keeper.GophKeeper/UpdateLoginPassword"
 	GophKeeper_GetLoginPassword_FullMethodName    = "/goph_keeper.GophKeeper/GetLoginPassword"
 	GophKeeper_DeleteLoginPassword_FullMethodName = "/goph_keeper.GophKeeper/DeleteLoginPassword"
 	GophKeeper_AddCard_FullMethodName             = "/goph_keeper.GophKeeper/AddCard"
+	GophKeeper_UpdateCard_FullMethodName          = "/goph_keeper.GophKeeper/UpdateCard"
 	GophKeeper_GetCard_FullMethodName             = "/goph_keeper.GophKeeper/GetCard"
 	GophKeeper_DeleteCard_FullMethodName          = "/goph_keeper.GophKeeper/DeleteCard"
 	GophKeeper_AddText_FullMethodName             = "/goph_keeper.GophKeeper/AddText"
+	GophKeeper_UpdateText_FullMethodName          = "/goph_keeper.GophKeeper/UpdateText"
 	GophKeeper_GetText_FullMethodName             = "/goph_keeper.GophKeeper/GetText"
 	GophKeeper_DeleteText_FullMethodName          = "/goph_keeper.GophKeeper/DeleteText"
 	GophKeeper_AddBinary_FullMethodName           = "/goph_keeper.GophKeeper/AddBinary"
+	GophKeeper_UpdateBinary_FullMethodName        = "/goph_keeper.GophKeeper/UpdateBinary"
 	GophKeeper_GetBinary_FullMethodName           = "/goph_keeper.GophKeeper/GetBinary"
 	GophKeeper_DeleteBinary_FullMethodName        = "/goph_keeper.GophKeeper/DeleteBinary"
 )
@@ -43,15 +47,19 @@ type GophKeeperClient interface {
 	Register(ctx context.Context, in *UserData, opts ...grpc.CallOption) (*LoginResult, error)
 	Login(ctx context.Context, in *UserData, opts ...grpc.CallOption) (*LoginResult, error)
 	AddLoginPassword(ctx context.Context, in *LoginPassword, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpdateLoginPassword(ctx context.Context, in *LoginPassword, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetLoginPassword(ctx context.Context, in *Key, opts ...grpc.CallOption) (*LoginPassword, error)
 	DeleteLoginPassword(ctx context.Context, in *Key, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AddCard(ctx context.Context, in *CardDetails, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpdateCard(ctx context.Context, in *CardDetails, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetCard(ctx context.Context, in *Key, opts ...grpc.CallOption) (*CardDetails, error)
 	DeleteCard(ctx context.Context, in *Key, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AddText(ctx context.Context, opts ...grpc.CallOption) (GophKeeper_AddTextClient, error)
+	UpdateText(ctx context.Context, opts ...grpc.CallOption) (GophKeeper_UpdateTextClient, error)
 	GetText(ctx context.Context, in *Key, opts ...grpc.CallOption) (GophKeeper_GetTextClient, error)
 	DeleteText(ctx context.Context, in *Key, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AddBinary(ctx context.Context, opts ...grpc.CallOption) (GophKeeper_AddBinaryClient, error)
+	UpdateBinary(ctx context.Context, opts ...grpc.CallOption) (GophKeeper_UpdateBinaryClient, error)
 	GetBinary(ctx context.Context, in *Key, opts ...grpc.CallOption) (GophKeeper_GetBinaryClient, error)
 	DeleteBinary(ctx context.Context, in *Key, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -91,6 +99,15 @@ func (c *gophKeeperClient) AddLoginPassword(ctx context.Context, in *LoginPasswo
 	return out, nil
 }
 
+func (c *gophKeeperClient) UpdateLoginPassword(ctx context.Context, in *LoginPassword, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, GophKeeper_UpdateLoginPassword_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *gophKeeperClient) GetLoginPassword(ctx context.Context, in *Key, opts ...grpc.CallOption) (*LoginPassword, error) {
 	out := new(LoginPassword)
 	err := c.cc.Invoke(ctx, GophKeeper_GetLoginPassword_FullMethodName, in, out, opts...)
@@ -112,6 +129,15 @@ func (c *gophKeeperClient) DeleteLoginPassword(ctx context.Context, in *Key, opt
 func (c *gophKeeperClient) AddCard(ctx context.Context, in *CardDetails, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, GophKeeper_AddCard_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gophKeeperClient) UpdateCard(ctx context.Context, in *CardDetails, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, GophKeeper_UpdateCard_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -170,8 +196,42 @@ func (x *gophKeeperAddTextClient) CloseAndRecv() (*emptypb.Empty, error) {
 	return m, nil
 }
 
+func (c *gophKeeperClient) UpdateText(ctx context.Context, opts ...grpc.CallOption) (GophKeeper_UpdateTextClient, error) {
+	stream, err := c.cc.NewStream(ctx, &GophKeeper_ServiceDesc.Streams[1], GophKeeper_UpdateText_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &gophKeeperUpdateTextClient{stream}
+	return x, nil
+}
+
+type GophKeeper_UpdateTextClient interface {
+	Send(*Text) error
+	CloseAndRecv() (*emptypb.Empty, error)
+	grpc.ClientStream
+}
+
+type gophKeeperUpdateTextClient struct {
+	grpc.ClientStream
+}
+
+func (x *gophKeeperUpdateTextClient) Send(m *Text) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *gophKeeperUpdateTextClient) CloseAndRecv() (*emptypb.Empty, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(emptypb.Empty)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *gophKeeperClient) GetText(ctx context.Context, in *Key, opts ...grpc.CallOption) (GophKeeper_GetTextClient, error) {
-	stream, err := c.cc.NewStream(ctx, &GophKeeper_ServiceDesc.Streams[1], GophKeeper_GetText_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &GophKeeper_ServiceDesc.Streams[2], GophKeeper_GetText_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +272,7 @@ func (c *gophKeeperClient) DeleteText(ctx context.Context, in *Key, opts ...grpc
 }
 
 func (c *gophKeeperClient) AddBinary(ctx context.Context, opts ...grpc.CallOption) (GophKeeper_AddBinaryClient, error) {
-	stream, err := c.cc.NewStream(ctx, &GophKeeper_ServiceDesc.Streams[2], GophKeeper_AddBinary_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &GophKeeper_ServiceDesc.Streams[3], GophKeeper_AddBinary_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -245,8 +305,42 @@ func (x *gophKeeperAddBinaryClient) CloseAndRecv() (*emptypb.Empty, error) {
 	return m, nil
 }
 
+func (c *gophKeeperClient) UpdateBinary(ctx context.Context, opts ...grpc.CallOption) (GophKeeper_UpdateBinaryClient, error) {
+	stream, err := c.cc.NewStream(ctx, &GophKeeper_ServiceDesc.Streams[4], GophKeeper_UpdateBinary_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &gophKeeperUpdateBinaryClient{stream}
+	return x, nil
+}
+
+type GophKeeper_UpdateBinaryClient interface {
+	Send(*Binary) error
+	CloseAndRecv() (*emptypb.Empty, error)
+	grpc.ClientStream
+}
+
+type gophKeeperUpdateBinaryClient struct {
+	grpc.ClientStream
+}
+
+func (x *gophKeeperUpdateBinaryClient) Send(m *Binary) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *gophKeeperUpdateBinaryClient) CloseAndRecv() (*emptypb.Empty, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(emptypb.Empty)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *gophKeeperClient) GetBinary(ctx context.Context, in *Key, opts ...grpc.CallOption) (GophKeeper_GetBinaryClient, error) {
-	stream, err := c.cc.NewStream(ctx, &GophKeeper_ServiceDesc.Streams[3], GophKeeper_GetBinary_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &GophKeeper_ServiceDesc.Streams[5], GophKeeper_GetBinary_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -293,15 +387,19 @@ type GophKeeperServer interface {
 	Register(context.Context, *UserData) (*LoginResult, error)
 	Login(context.Context, *UserData) (*LoginResult, error)
 	AddLoginPassword(context.Context, *LoginPassword) (*emptypb.Empty, error)
+	UpdateLoginPassword(context.Context, *LoginPassword) (*emptypb.Empty, error)
 	GetLoginPassword(context.Context, *Key) (*LoginPassword, error)
 	DeleteLoginPassword(context.Context, *Key) (*emptypb.Empty, error)
 	AddCard(context.Context, *CardDetails) (*emptypb.Empty, error)
+	UpdateCard(context.Context, *CardDetails) (*emptypb.Empty, error)
 	GetCard(context.Context, *Key) (*CardDetails, error)
 	DeleteCard(context.Context, *Key) (*emptypb.Empty, error)
 	AddText(GophKeeper_AddTextServer) error
+	UpdateText(GophKeeper_UpdateTextServer) error
 	GetText(*Key, GophKeeper_GetTextServer) error
 	DeleteText(context.Context, *Key) (*emptypb.Empty, error)
 	AddBinary(GophKeeper_AddBinaryServer) error
+	UpdateBinary(GophKeeper_UpdateBinaryServer) error
 	GetBinary(*Key, GophKeeper_GetBinaryServer) error
 	DeleteBinary(context.Context, *Key) (*emptypb.Empty, error)
 	mustEmbedUnimplementedGophKeeperServer()
@@ -320,6 +418,9 @@ func (UnimplementedGophKeeperServer) Login(context.Context, *UserData) (*LoginRe
 func (UnimplementedGophKeeperServer) AddLoginPassword(context.Context, *LoginPassword) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddLoginPassword not implemented")
 }
+func (UnimplementedGophKeeperServer) UpdateLoginPassword(context.Context, *LoginPassword) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateLoginPassword not implemented")
+}
 func (UnimplementedGophKeeperServer) GetLoginPassword(context.Context, *Key) (*LoginPassword, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetLoginPassword not implemented")
 }
@@ -328,6 +429,9 @@ func (UnimplementedGophKeeperServer) DeleteLoginPassword(context.Context, *Key) 
 }
 func (UnimplementedGophKeeperServer) AddCard(context.Context, *CardDetails) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddCard not implemented")
+}
+func (UnimplementedGophKeeperServer) UpdateCard(context.Context, *CardDetails) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateCard not implemented")
 }
 func (UnimplementedGophKeeperServer) GetCard(context.Context, *Key) (*CardDetails, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCard not implemented")
@@ -338,6 +442,9 @@ func (UnimplementedGophKeeperServer) DeleteCard(context.Context, *Key) (*emptypb
 func (UnimplementedGophKeeperServer) AddText(GophKeeper_AddTextServer) error {
 	return status.Errorf(codes.Unimplemented, "method AddText not implemented")
 }
+func (UnimplementedGophKeeperServer) UpdateText(GophKeeper_UpdateTextServer) error {
+	return status.Errorf(codes.Unimplemented, "method UpdateText not implemented")
+}
 func (UnimplementedGophKeeperServer) GetText(*Key, GophKeeper_GetTextServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetText not implemented")
 }
@@ -346,6 +453,9 @@ func (UnimplementedGophKeeperServer) DeleteText(context.Context, *Key) (*emptypb
 }
 func (UnimplementedGophKeeperServer) AddBinary(GophKeeper_AddBinaryServer) error {
 	return status.Errorf(codes.Unimplemented, "method AddBinary not implemented")
+}
+func (UnimplementedGophKeeperServer) UpdateBinary(GophKeeper_UpdateBinaryServer) error {
+	return status.Errorf(codes.Unimplemented, "method UpdateBinary not implemented")
 }
 func (UnimplementedGophKeeperServer) GetBinary(*Key, GophKeeper_GetBinaryServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetBinary not implemented")
@@ -420,6 +530,24 @@ func _GophKeeper_AddLoginPassword_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GophKeeper_UpdateLoginPassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoginPassword)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GophKeeperServer).UpdateLoginPassword(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GophKeeper_UpdateLoginPassword_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GophKeeperServer).UpdateLoginPassword(ctx, req.(*LoginPassword))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _GophKeeper_GetLoginPassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Key)
 	if err := dec(in); err != nil {
@@ -470,6 +598,24 @@ func _GophKeeper_AddCard_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(GophKeeperServer).AddCard(ctx, req.(*CardDetails))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GophKeeper_UpdateCard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CardDetails)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GophKeeperServer).UpdateCard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GophKeeper_UpdateCard_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GophKeeperServer).UpdateCard(ctx, req.(*CardDetails))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -529,6 +675,32 @@ func (x *gophKeeperAddTextServer) SendAndClose(m *emptypb.Empty) error {
 }
 
 func (x *gophKeeperAddTextServer) Recv() (*Text, error) {
+	m := new(Text)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _GophKeeper_UpdateText_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(GophKeeperServer).UpdateText(&gophKeeperUpdateTextServer{stream})
+}
+
+type GophKeeper_UpdateTextServer interface {
+	SendAndClose(*emptypb.Empty) error
+	Recv() (*Text, error)
+	grpc.ServerStream
+}
+
+type gophKeeperUpdateTextServer struct {
+	grpc.ServerStream
+}
+
+func (x *gophKeeperUpdateTextServer) SendAndClose(m *emptypb.Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *gophKeeperUpdateTextServer) Recv() (*Text, error) {
 	m := new(Text)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -601,6 +773,32 @@ func (x *gophKeeperAddBinaryServer) Recv() (*Binary, error) {
 	return m, nil
 }
 
+func _GophKeeper_UpdateBinary_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(GophKeeperServer).UpdateBinary(&gophKeeperUpdateBinaryServer{stream})
+}
+
+type GophKeeper_UpdateBinaryServer interface {
+	SendAndClose(*emptypb.Empty) error
+	Recv() (*Binary, error)
+	grpc.ServerStream
+}
+
+type gophKeeperUpdateBinaryServer struct {
+	grpc.ServerStream
+}
+
+func (x *gophKeeperUpdateBinaryServer) SendAndClose(m *emptypb.Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *gophKeeperUpdateBinaryServer) Recv() (*Binary, error) {
+	m := new(Binary)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func _GophKeeper_GetBinary_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(Key)
 	if err := stream.RecvMsg(m); err != nil {
@@ -660,6 +858,10 @@ var GophKeeper_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _GophKeeper_AddLoginPassword_Handler,
 		},
 		{
+			MethodName: "UpdateLoginPassword",
+			Handler:    _GophKeeper_UpdateLoginPassword_Handler,
+		},
+		{
 			MethodName: "GetLoginPassword",
 			Handler:    _GophKeeper_GetLoginPassword_Handler,
 		},
@@ -670,6 +872,10 @@ var GophKeeper_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddCard",
 			Handler:    _GophKeeper_AddCard_Handler,
+		},
+		{
+			MethodName: "UpdateCard",
+			Handler:    _GophKeeper_UpdateCard_Handler,
 		},
 		{
 			MethodName: "GetCard",
@@ -695,6 +901,11 @@ var GophKeeper_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 		{
+			StreamName:    "UpdateText",
+			Handler:       _GophKeeper_UpdateText_Handler,
+			ClientStreams: true,
+		},
+		{
 			StreamName:    "GetText",
 			Handler:       _GophKeeper_GetText_Handler,
 			ServerStreams: true,
@@ -702,6 +913,11 @@ var GophKeeper_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "AddBinary",
 			Handler:       _GophKeeper_AddBinary_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "UpdateBinary",
+			Handler:       _GophKeeper_UpdateBinary_Handler,
 			ClientStreams: true,
 		},
 		{

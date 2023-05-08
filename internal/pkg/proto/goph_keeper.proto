@@ -11,7 +11,7 @@ message UserData {
 }
 
 message LoginResult {
-  bool success = 1;
+  string token = 1;
 }
 
 message Key {
@@ -51,15 +51,19 @@ service GophKeeper {
   rpc Register(UserData) returns (LoginResult);
   rpc Login(UserData) returns (LoginResult);
   rpc AddLoginPassword(LoginPassword) returns (google.protobuf.Empty);
+  rpc UpdateLoginPassword(LoginPassword) returns (google.protobuf.Empty);
   rpc GetLoginPassword(Key) returns (LoginPassword);
   rpc DeleteLoginPassword(Key) returns (google.protobuf.Empty);
   rpc AddCard(CardDetails) returns (google.protobuf.Empty);
+  rpc UpdateCard(CardDetails) returns (google.protobuf.Empty);
   rpc GetCard(Key) returns (CardDetails);
   rpc DeleteCard(Key) returns (google.protobuf.Empty);
   rpc AddText(stream Text) returns (google.protobuf.Empty);
+  rpc UpdateText(stream Text) returns (google.protobuf.Empty);
   rpc GetText(Key) returns (stream Text);
   rpc DeleteText(Key) returns (google.protobuf.Empty);
   rpc AddBinary(stream Binary) returns (google.protobuf.Empty);
+  rpc UpdateBinary(stream Binary) returns (google.protobuf.Empty);
   rpc GetBinary(Key) returns (stream Binary);
   rpc DeleteBinary(Key) returns (google.protobuf.Empty);
 }

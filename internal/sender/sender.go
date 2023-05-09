@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"io"
 	"log"
 	"os"
 )
@@ -115,6 +116,71 @@ func (sender *Sender) AddText(text console.Text) error {
 			return err
 		}
 	}
+}
+
+func (sender *Sender) GetText(key string) (string, error) {
+	stream, err := sender.client.GetText(context.Background(), &pb.Key{Key: key})
+	filename := "text_" + key + ".txt"
+	if err != nil {
+		if e, ok := status.FromError(err); ok {
+			return "", errors.New(e.Code().String())
+		}
+	}
+	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0777)
+	if err != nil {
+		return "", err
+	}
+	writer := bufio.NewWriter(f)
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			writer.Flush()
+			return filename, nil
+		}
+		if err != nil {
+			return "", err
+		}
+		_, err = writer.Write([]byte(in.Data))
+
+		//_, err = writer.WriteString(in.Data)
+		if err != nil {
+			return "", err
+		}
+	}
+}
+
+func (sender *Sender) UpdateText(text console.Text) error {
+	file, err := os.Open(text.Path)
+	defer file.Close()
+	if err != nil {
+		return err
+	}
+	reader := bufio.NewReader(file)
+	chunk := make([]byte, ChunkSize)
+	stream, err := sender.client.UpdateText(context.Background())
+
+	for {
+		if _, err := reader.Read(chunk); err != nil {
+			_, err = stream.CloseAndRecv()
+			return err
+		}
+		err = stream.Send(&pb.Text{Data: string(chunk), Meta: text.Meta, Key: text.Key})
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (sender *Sender) DeleteText(key string) error {
+	fmt.Println("Start delete request")
+	_, err := sender.client.DeleteText(context.Background(), &pb.Key{Key: key})
+	if err != nil {
+		if e, ok := status.FromError(err); ok {
+			return errors.New(e.Code().String())
+		}
+		return err
+	}
+	return nil
 }
 
 func (sender *Sender) Register(loginPass console.UserLoginPass) error {

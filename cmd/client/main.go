@@ -77,6 +77,12 @@ func main() {
 					log.Fatal(err)
 				}
 				fmt.Println("Success")
+			case "text":
+				err := reqSender.UpdateText(data.Data.(console.Text))
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Println("Success")
 			}
 		case "get":
 			switch data.DataType {
@@ -86,11 +92,23 @@ func main() {
 					log.Fatal(err)
 				}
 				fmt.Printf("Got login_pass data for key %v:\nlogin: %v\npassword: %v\nmeta: %v\n", loginPass.Key, loginPass.Login, loginPass.Password, loginPass.Meta)
+			case "text":
+				filename, err := reqSender.GetText(data.Key)
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Printf("Got text in filename %v\n", filename)
 			}
 		case "delete":
 			switch data.DataType {
 			case "login_pass":
 				err := reqSender.DeleteLoginPassword(data.Key)
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Println("Success")
+			case "text":
+				err := reqSender.DeleteText(data.Key)
 				if err != nil {
 					log.Fatal(err)
 				}

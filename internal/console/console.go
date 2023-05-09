@@ -225,13 +225,13 @@ func (console Console) ParseCommandCycle() InputData {
 			key := console.ParseKey()
 			return InputData{Key: key, DataType: dataType, Command: "get"}
 		case "update":
-			key := console.ParseKey()
+			//key := console.ParseKey()
 			dataType := console.ParseInputDataType()
 			data := console.TypeToFunction[dataType].(func(console Console) interface{})(console)
-			return InputData{Key: key, Data: data, DataType: dataType, Command: "update"}
+			return InputData{Data: data, DataType: dataType, Command: "update"}
 		case "delete":
-			key := console.ParseKey()
 			dataType := console.ParseInputDataType()
+			key := console.ParseKey()
 			return InputData{Key: key, DataType: dataType, Command: "delete"}
 		}
 	}

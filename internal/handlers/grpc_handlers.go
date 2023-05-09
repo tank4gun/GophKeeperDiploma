@@ -23,11 +23,24 @@ var SecretKey = []byte("jhadaqasd")
 
 // type ClientIDType string
 var ClientIDCtx = "ClientID"
+var ChunkSize = 1000
 
 type Server struct {
 	pb.UnimplementedGophKeeperServer
 	storage storage.IRepository
 }
+
+type serverStreamWrapper struct {
+	ss  grpc.ServerStream
+	ctx context.Context
+}
+
+func (w serverStreamWrapper) Context() context.Context        { return w.ctx }
+func (w serverStreamWrapper) RecvMsg(msg interface{}) error   { return w.ss.RecvMsg(msg) }
+func (w serverStreamWrapper) SendMsg(msg interface{}) error   { return w.ss.SendMsg(msg) }
+func (w serverStreamWrapper) SendHeader(md metadata.MD) error { return w.ss.SendHeader(md) }
+func (w serverStreamWrapper) SetHeader(md metadata.MD) error  { return w.ss.SetHeader(md) }
+func (w serverStreamWrapper) SetTrailer(md metadata.MD)       { w.ss.SetTrailer(md) }
 
 func NewServer(storage storage.IRepository) *Server {
 	return &Server{storage: storage}
@@ -127,12 +140,7 @@ func CreateAuthStreamInterceptor(storage storage.IRepository) func(srv interface
 		}
 		md, _ := metadata.FromIncomingContext(ss.Context())
 		md.Set(ClientIDCtx, client.ID)
-		//type serverStream struct {
-		//	grpc.ServerStream
-		//	ctx context.Context
-		//}
-		ss.SetTrailer(md)
-		return handler(srv, ss)
+		return handler(srv, &serverStreamWrapper{ss, metadata.NewIncomingContext(ss.Context(), md)})
 	}
 }
 
@@ -253,6 +261,7 @@ func (s *Server) AddText(stream pb.GophKeeper_AddTextServer) error {
 	if md, ok := metadata.FromIncomingContext(stream.Context()); !ok {
 		return status.New(codes.Internal, "Something went wrong").Err()
 	} else {
+		fmt.Printf("MetaData %v", md)
 		clientIDValue := md.Get(ClientIDCtx)[0]
 		clientId, _ := uuid.Parse(clientIDValue)
 		text, err := stream.Recv()
@@ -261,13 +270,14 @@ func (s *Server) AddText(stream pb.GophKeeper_AddTextServer) error {
 		}
 		key := text.Key
 		meta := text.Meta
-		filename := "text_" + clientId.String() + "_" + key
+		filename := "text_" + clientId.String() + "_" + key + ".txt"
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0777)
 		defer f.Close()
 		if err != nil {
 			return err
 		}
 		writer := bufio.NewWriter(f)
+		fmt.Printf("Text Data %v", text.Data)
 		_, err = writer.WriteString(text.Data)
 		if err != nil {
 			return err
@@ -275,6 +285,7 @@ func (s *Server) AddText(stream pb.GophKeeper_AddTextServer) error {
 		for {
 			text, err := stream.Recv()
 			if err == io.EOF {
+				writer.Flush()
 				s.storage.AddText(clientId, key, filename, meta)
 				return stream.SendAndClose(&emptypb.Empty{})
 			}
@@ -283,5 +294,101 @@ func (s *Server) AddText(stream pb.GophKeeper_AddTextServer) error {
 			}
 			writer.WriteString(text.Data)
 		}
+	}
+}
+
+func (s *Server) GetText(in *pb.Key, stream pb.GophKeeper_GetTextServer) error {
+	if md, ok := metadata.FromIncomingContext(stream.Context()); !ok {
+		return status.New(codes.Internal, "Something went wrong").Err()
+	} else {
+		fmt.Printf("MetaData %v", md)
+		clientIDValue := md.Get(ClientIDCtx)[0]
+		clientId, _ := uuid.Parse(clientIDValue)
+		text, statusCode := s.storage.GetText(clientId, in.Key)
+		fmt.Printf("Got text from storage %v", text)
+		if statusCode.Code() != codes.OK {
+			return statusCode.Err()
+		}
+		f, err := os.Open(text.Path)
+		defer f.Close()
+		if err != nil {
+			return err
+		}
+		reader := bufio.NewReader(f)
+		chunk := make([]byte, ChunkSize)
+		for {
+			_, err := reader.Read(chunk)
+			if err == io.EOF {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			err = stream.Send(&pb.Text{
+				Key:  text.Key,
+				Data: string(chunk),
+				Meta: text.Meta,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func (s *Server) UpdateText(stream pb.GophKeeper_UpdateTextServer) error {
+	if md, ok := metadata.FromIncomingContext(stream.Context()); !ok {
+		return status.New(codes.Internal, "Something went wrong").Err()
+	} else {
+		fmt.Printf("MetaData %v", md)
+		clientIDValue := md.Get(ClientIDCtx)[0]
+		clientId, _ := uuid.Parse(clientIDValue)
+		text, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		key := text.Key
+		meta := text.Key
+		filename := "text_" + clientId.String() + "_" + key + ".txt"
+		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0777)
+		if err != nil {
+			return err
+		}
+		writer := bufio.NewWriter(f)
+		writer.WriteString(text.Data)
+		for {
+			text, err := stream.Recv()
+			if err == io.EOF {
+				writer.Flush()
+				s.storage.UpdateText(clientId, key, filename, meta)
+				return stream.SendAndClose(&emptypb.Empty{})
+			}
+			if err != nil {
+				return err
+			}
+			writer.WriteString(text.Data)
+		}
+	}
+}
+
+func (s *Server) DeleteText(ctx context.Context, in *pb.Key) (*emptypb.Empty, error) {
+	fmt.Printf("Got delete request")
+	if md, ok := metadata.FromIncomingContext(ctx); !ok {
+		return &emptypb.Empty{}, status.New(codes.Internal, "Something went wrong").Err()
+	} else {
+		fmt.Printf("MetaData %v", md)
+		clientIDValue := md.Get(ClientIDCtx)[0]
+		clientId, _ := uuid.Parse(clientIDValue)
+		text, statusCode := s.storage.GetText(clientId, in.Key)
+		fmt.Printf("Got text data %v", text)
+		if statusCode.Code() != codes.OK {
+			return &emptypb.Empty{}, statusCode.Err()
+		}
+		err := os.Remove(text.Path)
+		if err != nil {
+			return &emptypb.Empty{}, err
+		}
+		statusCode = s.storage.DeleteText(clientId, text.Key)
+		return &emptypb.Empty{}, statusCode.Err()
 	}
 }

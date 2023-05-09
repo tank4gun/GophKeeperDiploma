@@ -19,7 +19,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	s := grpc.NewServer(grpc.UnaryInterceptor(handlers.AuthInterceptor))
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(handlers.CreateAuthUnaryInterceptor(newStorage)),
+		grpc.StreamInterceptor(handlers.CreateAuthStreamInterceptor(newStorage)),
+	)
 	pb.RegisterGophKeeperServer(s, handlers.NewServer(newStorage))
 	fmt.Println("Started")
 	if err := s.Serve(listener); err != nil {

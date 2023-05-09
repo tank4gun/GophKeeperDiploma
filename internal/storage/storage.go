@@ -15,6 +15,7 @@ import (
 )
 
 type Client struct {
+	ID           string
 	Login        string
 	PasswordHash string
 }
@@ -28,6 +29,7 @@ type IRepository interface {
 	UpdateLoginPassword(clientId uuid.UUID, key string, login string, password string, meta string) *status.Status
 	GetLoginPassword(clientId uuid.UUID, key string) (console.LoginPass, *status.Status)
 	DeleteLoginPassword(clientId uuid.UUID, key string) *status.Status
+	AddText(clientId uuid.UUID, key string, path string, meta string) *status.Status
 	//AddMetaData(value string) (uuid.UUID, int)
 }
 
@@ -57,9 +59,9 @@ func NewRepository(dbDSN string) IRepository {
 //}
 
 func (repo *Repository) GetClientByLogin(login string) (Client, codes.Code) {
-	row := repo.db.QueryRow("SELECT password_hash FROM client WHERE login = $1", login)
+	row := repo.db.QueryRow("SELECT id, password_hash FROM client WHERE login = $1", login)
 	client := Client{Login: login}
-	if err := row.Scan(&client.PasswordHash); err != nil {
+	if err := row.Scan(&client.ID, &client.PasswordHash); err != nil {
 		return Client{}, codes.NotFound
 	}
 	return client, codes.OK
@@ -132,4 +134,19 @@ func (repo *Repository) DeleteLoginPassword(clientId uuid.UUID, key string) *sta
 		return status.New(codes.Internal, "Couldn't update login_password value into db")
 	}
 	return status.New(codes.OK, "Value updated")
+}
+
+func (repo *Repository) AddText(clientId uuid.UUID, key string, path string, meta string) *status.Status {
+	fmt.Println("AddText")
+	row := repo.db.QueryRow("INSERT INTO text (user_id, \"key\", \"path\", meta) VALUES ($1, $2, $3, $4) RETURNING id", clientId, key, path, meta)
+	var textIdDb string
+	if err := row.Scan(&textIdDb); err != nil {
+		if errors.As(err, &psqlErr) {
+			if psqlErr.Code == pgerrcode.ForeignKeyViolation {
+				return status.New(codes.AlreadyExists, "Text for given user and key already exists")
+			}
+		}
+		return status.New(codes.Internal, "Couldn't insert text value into db")
+	}
+	return status.New(codes.OK, "Value added")
 }

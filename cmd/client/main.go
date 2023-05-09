@@ -7,6 +7,25 @@ import (
 	"log"
 )
 
+var TextChunks = make(chan console.TextData, 10)
+
+//
+//func ReadAndSendText(text console.Text, reqSender sender.Sender) error {
+//	file, err := os.Open(text.Path)
+//	if err != nil {
+//		return err
+//	}
+//	reader := bufio.NewReader(file)
+//	chunk := make([]byte, ChunkSize)
+//
+//	for {
+//		if _, err := reader.Read(chunk); err != nil {
+//			return err
+//		}
+//		TextChunks <- console.TextData{Data: chunk, Meta: text.Meta, Key: text.Key}
+//	}
+//}
+
 func main() {
 	//conn, err := grpc.Dial(":8400", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	//if err != nil {
@@ -40,6 +59,11 @@ func main() {
 			switch data.DataType {
 			case "login_pass":
 				err := reqSender.AddLoginPassword(data.Data.(console.LoginPass))
+				if err != nil {
+					log.Fatal(err)
+				}
+			case "text":
+				err := reqSender.AddText(data.Data.(console.Text))
 				if err != nil {
 					log.Fatal(err)
 				}

@@ -3,6 +3,7 @@ package handlers
 import (
 	pb "GophKeeperDiploma/internal/pkg/proto"
 	"GophKeeperDiploma/internal/storage"
+	"bufio"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -14,6 +15,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"io"
+	"os"
 )
 
 var SecretKey = []byte("jhadaqasd")
@@ -37,39 +40,136 @@ func GetHashForClient(in *pb.UserData) string {
 	return hex.EncodeToString(passwordHash)
 }
 
-func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	var token string
-	var login string
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		tokenValues := md.Get("ClientToken")
-		if len(tokenValues) > 0 {
-			token = tokenValues[0]
+func CreateAuthUnaryInterceptor(storage storage.IRepository) func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		var token string
+		var login string
+		//fmt.Printf("Func name %v", runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name())
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			tokenValues := md.Get("ClientToken")
+			if len(tokenValues) > 0 {
+				token = tokenValues[0]
+			}
+			clientLogin := md.Get("ClientLogin")
+			if len(clientLogin) > 0 {
+				login = clientLogin[0]
+			}
+		} else {
+			return nil, status.Error(codes.Unauthenticated, "missing token and login")
 		}
-		clientLogin := md.Get("ClientLogin")
-		if len(clientLogin) > 0 {
-			login = clientLogin[0]
+		// TODO: Add it with check for handler name (for register it's ok)
+		//if len(token) == 0 {
+		//	return nil, status.Error(codes.Unauthenticated, "missing client token")
+		//}
+		if len(login) == 0 {
+			return nil, status.Error(codes.Unauthenticated, "missing client login")
 		}
-	} else {
-		return nil, status.Error(codes.Unauthenticated, "missing token and login")
+		fmt.Printf("Login %v, token %v", login, token)
+		// TODO: Add it with storage usage in interceptor
+		client, errCode := storage.GetClientByLogin(login)
+		fmt.Printf("Client %v errCode %v", client, errCode)
+		if errCode == codes.NotFound {
+			return handler(ctx, req)
+		}
+		if errCode != codes.OK {
+			return nil, status.Error(errCode, "Client with given login doesn't exist")
+		}
+		if len(token) != 0 && token != client.PasswordHash {
+			return nil, status.Error(codes.Unauthenticated, "invalid client token")
+		}
+		md, _ := metadata.FromIncomingContext(ctx)
+		md.Set(ClientIDCtx, client.ID)
+		ctx = metadata.NewIncomingContext(ctx, md)
+		return handler(ctx, req)
 	}
-	// TODO: Add it with check for handler name (for register it's ok)
-	//if len(token) == 0 {
-	//	return nil, status.Error(codes.Unauthenticated, "missing client token")
-	//}
-	//if len(login) == 0 {
-	//	return nil, status.Error(codes.Unauthenticated, "missing client login")
-	//}
-	fmt.Printf("Login %v, token %v", login, token)
-	// TODO: Add it with storage usage in interceptor
-	//client := s.storage.
-	//if token != SecretToken {
-	//	return nil, status.Error(codes.Unauthenticated, "invalid client token")
-	//}
-	md, _ := metadata.FromIncomingContext(ctx)
-	md.Set(ClientIDCtx, "5694f4a0-7127-4999-acbd-8513318b36d1")
-	ctx = metadata.NewIncomingContext(ctx, md)
-	return handler(ctx, req)
 }
+
+func CreateAuthStreamInterceptor(storage storage.IRepository) func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		var token string
+		var login string
+		fmt.Println("Oh, wow!")
+		if md, ok := metadata.FromIncomingContext(ss.Context()); ok {
+			tokenValues := md.Get("ClientToken")
+			if len(tokenValues) > 0 {
+				token = tokenValues[0]
+			}
+			clientLogin := md.Get("ClientLogin")
+			if len(clientLogin) > 0 {
+				login = clientLogin[0]
+			}
+		} else {
+			fmt.Println("Oh, no!")
+			return status.Error(codes.Unauthenticated, "missing token and login")
+		}
+		fmt.Println("Oh, hmm!")
+		fmt.Printf("Login %v, token %v", login, token)
+
+		// TODO: Add it with check for handler name (for register it's ok)
+		//if len(token) == 0 {
+		//	return nil, status.Error(codes.Unauthenticated, "missing client token")
+		//}
+		if len(login) == 0 {
+			return status.Error(codes.Unauthenticated, "missing client login")
+		}
+		fmt.Printf("Login %v, token %v", login, token)
+		// TODO: Add it with storage usage in interceptor
+		client, errCode := storage.GetClientByLogin(login)
+		fmt.Printf("Client %v errCode %v", client, errCode)
+		if errCode == codes.NotFound {
+			return handler(srv, ss)
+		}
+		if errCode != codes.OK {
+			return status.Error(errCode, "Client with given login doesn't exist")
+		}
+		if len(token) != 0 && token != client.PasswordHash {
+			return status.Error(codes.Unauthenticated, "invalid client token")
+		}
+		md, _ := metadata.FromIncomingContext(ss.Context())
+		md.Set(ClientIDCtx, client.ID)
+		//type serverStream struct {
+		//	grpc.ServerStream
+		//	ctx context.Context
+		//}
+		ss.SetTrailer(md)
+		return handler(srv, ss)
+	}
+}
+
+//
+//func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+//	var token string
+//	var login string
+//	if md, ok := metadata.FromIncomingContext(ctx); ok {
+//		tokenValues := md.Get("ClientToken")
+//		if len(tokenValues) > 0 {
+//			token = tokenValues[0]
+//		}
+//		clientLogin := md.Get("ClientLogin")
+//		if len(clientLogin) > 0 {
+//			login = clientLogin[0]
+//		}
+//	} else {
+//		return nil, status.Error(codes.Unauthenticated, "missing token and login")
+//	}
+//	// TODO: Add it with check for handler name (for register it's ok)
+//	if len(token) == 0 {
+//		return nil, status.Error(codes.Unauthenticated, "missing client token")
+//	}
+//	if len(login) == 0 {
+//		return nil, status.Error(codes.Unauthenticated, "missing client login")
+//	}
+//	fmt.Printf("Login %v, token %v", login, token)
+//	// TODO: Add it with storage usage in interceptor
+//	client := s.storage.
+//	if token != SecretToken {
+//		return nil, status.Error(codes.Unauthenticated, "invalid client token")
+//	}
+//	md, _ := metadata.FromIncomingContext(ctx)
+//	md.Set(ClientIDCtx, "5694f4a0-7127-4999-acbd-8513318b36d1")
+//	ctx = metadata.NewIncomingContext(ctx, md)
+//	return handler(ctx, req)
+//}
 
 func (s *Server) Register(ctx context.Context, in *pb.UserData) (*pb.LoginResult, error) {
 	_, errCode := s.storage.GetClientByLogin(in.Login)
@@ -146,5 +246,42 @@ func (s *Server) DeleteLoginPassword(ctx context.Context, in *pb.Key) (*emptypb.
 		clientId, _ := uuid.Parse(clientIDValue)
 		statusCode := s.storage.DeleteLoginPassword(clientId, in.Key)
 		return &emptypb.Empty{}, statusCode.Err()
+	}
+}
+
+func (s *Server) AddText(stream pb.GophKeeper_AddTextServer) error {
+	if md, ok := metadata.FromIncomingContext(stream.Context()); !ok {
+		return status.New(codes.Internal, "Something went wrong").Err()
+	} else {
+		clientIDValue := md.Get(ClientIDCtx)[0]
+		clientId, _ := uuid.Parse(clientIDValue)
+		text, err := stream.Recv()
+		if err != nil && err != io.EOF {
+			return err
+		}
+		key := text.Key
+		meta := text.Meta
+		filename := "text_" + clientId.String() + "_" + key
+		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0777)
+		defer f.Close()
+		if err != nil {
+			return err
+		}
+		writer := bufio.NewWriter(f)
+		_, err = writer.WriteString(text.Data)
+		if err != nil {
+			return err
+		}
+		for {
+			text, err := stream.Recv()
+			if err == io.EOF {
+				s.storage.AddText(clientId, key, filename, meta)
+				return stream.SendAndClose(&emptypb.Empty{})
+			}
+			if err != nil {
+				return err
+			}
+			writer.WriteString(text.Data)
+		}
 	}
 }

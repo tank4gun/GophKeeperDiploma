@@ -5,6 +5,8 @@ import (
 	"GophKeeperDiploma/internal/storage"
 	"bufio"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -23,6 +25,7 @@ var SecretKey = []byte("jhadaqasd")
 
 // type ClientIDType string
 var ClientIDCtx = "ClientID"
+var ClientTokenCtx = "ClientToken"
 var ChunkSize = 1000
 
 type Server struct {
@@ -51,6 +54,71 @@ func GetHashForClient(in *pb.UserData) string {
 	h.Write([]byte(in.Password))
 	passwordHash := h.Sum(nil)
 	return hex.EncodeToString(passwordHash)
+}
+
+func Encrypt(data string, nonce []byte) ([]byte, error) {
+	f, err := os.OpenFile("cipher_key.txt", os.O_RDONLY, 0777)
+	if err != nil {
+		fmt.Printf("Got err while reading %v", err)
+		return []byte{}, err
+	}
+	defer f.Close()
+	reader := bufio.NewReader(f)
+	key := make([]byte, aes.BlockSize*2)
+	_, err = reader.Read(key)
+	if err != nil {
+		fmt.Printf("Got err while reading %v", err)
+		return []byte{}, err
+	}
+	aesblock, err := aes.NewCipher(key)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return []byte{}, nil
+	}
+
+	aesgcm, err := cipher.NewGCM(aesblock)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return []byte{}, nil
+	}
+
+	dst := aesgcm.Seal(nil, nonce[:aesgcm.NonceSize()], []byte(data), nil) // зашифровываем
+	fmt.Printf("encrypted: %x\n", dst)
+	return dst, nil
+}
+
+func Decrypt(data string, nonce []byte) ([]byte, error) {
+	f, _ := os.OpenFile("cipher_key.txt", os.O_RDONLY, 0777)
+	defer f.Close()
+	reader := bufio.NewReader(f)
+	key := make([]byte, aes.BlockSize*2)
+	_, err := reader.Read(key)
+	if err != nil {
+		return []byte{}, err
+	}
+	aesblock, err := aes.NewCipher(key)
+	if err != nil {
+		fmt.Printf("error1: %v\n", err)
+		return []byte{}, nil
+	}
+
+	aesgcm, err := cipher.NewGCM(aesblock)
+	if err != nil {
+		fmt.Printf("error2: %v\n", err)
+		return []byte{}, nil
+	}
+	//dataToDecode, err := hex.DecodeString(data)
+	//if err != nil {
+	//	fmt.Printf("error4: %v\n", err)
+	//	return []byte{}, err
+	//}
+	src2, err := aesgcm.Open(nil, nonce[:aesgcm.NonceSize()], []byte(data), nil)
+	if err != nil {
+		fmt.Printf("error3: %v\n", err)
+		return []byte{}, err
+	}
+	fmt.Printf("decrypted: %x\n", src2)
+	return src2, nil
 }
 
 func CreateAuthUnaryInterceptor(storage storage.IRepository) func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
@@ -144,41 +212,6 @@ func CreateAuthStreamInterceptor(storage storage.IRepository) func(srv interface
 	}
 }
 
-//
-//func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-//	var token string
-//	var login string
-//	if md, ok := metadata.FromIncomingContext(ctx); ok {
-//		tokenValues := md.Get("ClientToken")
-//		if len(tokenValues) > 0 {
-//			token = tokenValues[0]
-//		}
-//		clientLogin := md.Get("ClientLogin")
-//		if len(clientLogin) > 0 {
-//			login = clientLogin[0]
-//		}
-//	} else {
-//		return nil, status.Error(codes.Unauthenticated, "missing token and login")
-//	}
-//	// TODO: Add it with check for handler name (for register it's ok)
-//	if len(token) == 0 {
-//		return nil, status.Error(codes.Unauthenticated, "missing client token")
-//	}
-//	if len(login) == 0 {
-//		return nil, status.Error(codes.Unauthenticated, "missing client login")
-//	}
-//	fmt.Printf("Login %v, token %v", login, token)
-//	// TODO: Add it with storage usage in interceptor
-//	client := s.storage.
-//	if token != SecretToken {
-//		return nil, status.Error(codes.Unauthenticated, "invalid client token")
-//	}
-//	md, _ := metadata.FromIncomingContext(ctx)
-//	md.Set(ClientIDCtx, "5694f4a0-7127-4999-acbd-8513318b36d1")
-//	ctx = metadata.NewIncomingContext(ctx, md)
-//	return handler(ctx, req)
-//}
-
 func (s *Server) Register(ctx context.Context, in *pb.UserData) (*pb.LoginResult, error) {
 	_, errCode := s.storage.GetClientByLogin(in.Login)
 	fmt.Printf("USERDATA %v", in)
@@ -214,7 +247,15 @@ func (s *Server) AddLoginPassword(ctx context.Context, in *pb.LoginPassword) (*e
 		clientIDValues := md.Get(ClientIDCtx)
 		clientIDValue := clientIDValues[0]
 		clientId, _ := uuid.Parse(clientIDValue)
-		statusCode := s.storage.AddLoginPassword(clientId, in.Key, in.Login, in.Password, in.Meta)
+		clientTokens := md.Get(ClientTokenCtx)
+		clientToken := []byte(clientTokens[0])
+		login, _ := Encrypt(in.Login, clientToken)
+		password, _ := Encrypt(in.Password, clientToken)
+		meta, _ := Encrypt(in.Meta, clientToken)
+		fmt.Printf("Login %v, password %v, meta %v", login, password, meta)
+		statusCode := s.storage.AddLoginPassword(
+			clientId, in.Key, hex.EncodeToString(login), hex.EncodeToString(password), hex.EncodeToString(meta),
+		)
 		return &emptypb.Empty{}, statusCode.Err()
 	}
 }
@@ -225,7 +266,14 @@ func (s *Server) UpdateLoginPassword(ctx context.Context, in *pb.LoginPassword) 
 	} else {
 		clientIDValue := md.Get(ClientIDCtx)[0]
 		clientId, _ := uuid.Parse(clientIDValue)
-		statusCode := s.storage.UpdateLoginPassword(clientId, in.Key, in.Login, in.Password, in.Meta)
+		clientTokens := md.Get(ClientTokenCtx)
+		clientToken := []byte(clientTokens[0])
+		login, _ := Encrypt(in.Login, clientToken)
+		password, _ := Encrypt(in.Password, clientToken)
+		meta, _ := Encrypt(in.Meta, clientToken)
+		fmt.Printf("Login %v, password %v, meta %v", login, password, meta)
+		statusCode := s.storage.UpdateLoginPassword(
+			clientId, in.Key, hex.EncodeToString(login), hex.EncodeToString(password), hex.EncodeToString(meta))
 		return &emptypb.Empty{}, statusCode.Err()
 	}
 }
@@ -236,12 +284,18 @@ func (s *Server) GetLoginPassword(ctx context.Context, in *pb.Key) (*pb.LoginPas
 	} else {
 		clientIDValue := md.Get(ClientIDCtx)[0]
 		clientId, _ := uuid.Parse(clientIDValue)
+		clientTokens := md.Get(ClientTokenCtx)
+		clientToken := []byte(clientTokens[0])
 		loginPassword, statusCode := s.storage.GetLoginPassword(clientId, in.Key)
+		login, _ := Decrypt(loginPassword.Login, clientToken)
+		password, _ := Decrypt(loginPassword.Password, clientToken)
+		meta, _ := Decrypt(loginPassword.Meta, clientToken)
+
 		return &pb.LoginPassword{
-			Login:    loginPassword.Login,
-			Password: loginPassword.Password,
-			Key:      loginPassword.Key,
-			Meta:     loginPassword.Meta,
+			Login:    string(login),
+			Password: string(password),
+			Key:      in.Key,
+			Meta:     string(meta),
 		}, statusCode.Err()
 	}
 }
@@ -264,12 +318,14 @@ func (s *Server) AddText(stream pb.GophKeeper_AddTextServer) error {
 		fmt.Printf("MetaData %v", md)
 		clientIDValue := md.Get(ClientIDCtx)[0]
 		clientId, _ := uuid.Parse(clientIDValue)
+		clientTokens := md.Get(ClientTokenCtx)
+		clientToken := []byte(clientTokens[0])
 		text, err := stream.Recv()
 		if err != nil && err != io.EOF {
 			return err
 		}
 		key := text.Key
-		meta := text.Meta
+		meta, err := Encrypt(text.Meta, clientToken)
 		filename := "text_" + clientId.String() + "_" + key + ".txt"
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0777)
 		defer f.Close()
@@ -278,7 +334,10 @@ func (s *Server) AddText(stream pb.GophKeeper_AddTextServer) error {
 		}
 		writer := bufio.NewWriter(f)
 		fmt.Printf("Text Data %v", text.Data)
-		_, err = writer.WriteString(text.Data)
+		data, err := Encrypt(text.Data, clientToken)
+		encodedData := hex.EncodeToString(data)
+		fmt.Printf("Len encodedData %v", len(encodedData))
+		_, err = writer.WriteString(encodedData)
 		if err != nil {
 			return err
 		}
@@ -286,13 +345,14 @@ func (s *Server) AddText(stream pb.GophKeeper_AddTextServer) error {
 			text, err := stream.Recv()
 			if err == io.EOF {
 				writer.Flush()
-				s.storage.AddText(clientId, key, filename, meta)
+				s.storage.AddText(clientId, key, filename, hex.EncodeToString(meta))
 				return stream.SendAndClose(&emptypb.Empty{})
 			}
 			if err != nil {
 				return err
 			}
-			writer.WriteString(text.Data)
+			data, err := Encrypt(text.Data, clientToken)
+			writer.WriteString(hex.EncodeToString(data))
 		}
 	}
 }
@@ -304,6 +364,8 @@ func (s *Server) GetText(in *pb.Key, stream pb.GophKeeper_GetTextServer) error {
 		fmt.Printf("MetaData %v", md)
 		clientIDValue := md.Get(ClientIDCtx)[0]
 		clientId, _ := uuid.Parse(clientIDValue)
+		clientTokens := md.Get(ClientTokenCtx)
+		clientToken := []byte(clientTokens[0])
 		text, statusCode := s.storage.GetText(clientId, in.Key)
 		fmt.Printf("Got text from storage %v", text)
 		if statusCode.Code() != codes.OK {
@@ -315,9 +377,13 @@ func (s *Server) GetText(in *pb.Key, stream pb.GophKeeper_GetTextServer) error {
 			return err
 		}
 		reader := bufio.NewReader(f)
-		chunk := make([]byte, ChunkSize)
+		chunk := make([]byte, 2032)
 		for {
 			_, err := reader.Read(chunk)
+			fmt.Printf("err %v", err)
+			chunkDecoded, err := Decrypt(hex.EncodeToString(chunk), clientToken)
+			fmt.Printf("Decoded %v, err %v", chunkDecoded, err)
+			metaDecoded, _ := Decrypt(text.Meta, clientToken)
 			if err == io.EOF {
 				return nil
 			}
@@ -326,8 +392,8 @@ func (s *Server) GetText(in *pb.Key, stream pb.GophKeeper_GetTextServer) error {
 			}
 			err = stream.Send(&pb.Text{
 				Key:  text.Key,
-				Data: string(chunk),
-				Meta: text.Meta,
+				Data: hex.EncodeToString(chunkDecoded),
+				Meta: hex.EncodeToString(metaDecoded),
 			})
 			if err != nil {
 				return err

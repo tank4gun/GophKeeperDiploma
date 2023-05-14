@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"GophKeeperDiploma/internal/console"
+	"GophKeeperDiploma/internal/client/console"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -33,7 +33,14 @@ type IRepository interface {
 	GetText(clientId uuid.UUID, key string) (console.Text, *status.Status)
 	UpdateText(clientId uuid.UUID, key string, filename string, meta string) *status.Status
 	DeleteText(clientId uuid.UUID, key string) *status.Status
-	//AddMetaData(value string) (uuid.UUID, int)
+	AddBinary(clientId uuid.UUID, key string, path string, meta string) *status.Status
+	GetBinary(clientId uuid.UUID, key string) (console.Bytes, *status.Status)
+	UpdateBinary(clientId uuid.UUID, key string, filename string, meta string) *status.Status
+	DeleteBinary(clientId uuid.UUID, key string) *status.Status
+	AddCard(clientId uuid.UUID, key string, number string, name string, surname string, expiration string, cvv string, meta string) *status.Status
+	UpdateCard(clientId uuid.UUID, key string, number string, name string, surname string, expiration string, cvv string, meta string) *status.Status
+	GetCard(clientId uuid.UUID, key string) (console.Card, *status.Status)
+	DeleteCard(clientId uuid.UUID, key string) *status.Status
 }
 
 type Repository struct {
@@ -199,4 +206,138 @@ func (repo *Repository) DeleteText(clientId uuid.UUID, key string) *status.Statu
 	}
 	return status.New(codes.OK, "Text deleted")
 
+}
+
+func (repo *Repository) AddBinary(clientId uuid.UUID, key string, path string, meta string) *status.Status {
+	fmt.Println("AddBinary")
+	row := repo.db.QueryRow("INSERT INTO \"binary\" (user_id, \"key\", \"path\", meta) VALUES ($1, $2, $3, $4) RETURNING id", clientId, key, path, meta)
+	var binaryIdDb string
+	if err := row.Scan(&binaryIdDb); err != nil {
+		if errors.As(err, &psqlErr) {
+			if psqlErr.Code == pgerrcode.ForeignKeyViolation {
+				return status.New(codes.AlreadyExists, "Binary for given user and key already exists")
+			}
+		}
+		return status.New(codes.Internal, "Couldn't insert binary value into db")
+	}
+	return status.New(codes.OK, "Value added")
+}
+
+func (repo *Repository) GetBinary(clientId uuid.UUID, key string) (console.Bytes, *status.Status) {
+	fmt.Println("GetBinary")
+	row := repo.db.QueryRow("SELECT \"path\", meta FROM \"binary\" WHERE user_id = $1 AND \"key\" = $2 AND deleted is false", clientId, key)
+	binary := console.Bytes{Key: key}
+	if err := row.Scan(&binary.Path, &binary.Meta); err != nil {
+		if errors.As(err, &psqlErr) {
+			if psqlErr.Code == pgerrcode.ForeignKeyViolation {
+				return binary, status.New(codes.AlreadyExists, "Binary for given user and key already exists")
+			}
+		}
+		return binary, status.New(codes.Internal, "Couldn't insert binary value into db")
+	}
+	return binary, status.New(codes.OK, "Binary found")
+}
+
+func (repo *Repository) UpdateBinary(clientId uuid.UUID, key string, filename string, meta string) *status.Status {
+	fmt.Println("UpdateBinary")
+	row := repo.db.QueryRow("UPDATE \"binary\" SET \"path\" = $1, meta = $2 WHERE user_id = $3 AND \"key\" = $4 AND deleted is false RETURNING id", filename, meta, clientId, key)
+	var binaryIdDb string
+	if err := row.Scan(&binaryIdDb); err != nil {
+		if errors.As(err, &psqlErr) {
+			if psqlErr.Code == pgerrcode.ForeignKeyViolation {
+				return status.New(codes.NotFound, "Binary value for given user and key doesn't exist")
+			}
+		}
+		return status.New(codes.Internal, "Couldn't update binary value into db")
+	}
+	return status.New(codes.OK, "Binary updated")
+}
+
+func (repo *Repository) DeleteBinary(clientId uuid.UUID, key string) *status.Status {
+	fmt.Println("DeleteBinary")
+	row := repo.db.QueryRow("UPDATE \"binary\" SET deleted = true WHERE user_id = $1 AND \"key\" = $2 RETURNING id", clientId, key)
+	var binaryIdDb string
+	if err := row.Scan(&binaryIdDb); err != nil {
+		if errors.As(err, &psqlErr) {
+			if psqlErr.Code == pgerrcode.ForeignKeyViolation {
+				return status.New(codes.NotFound, "Binary value for given user and key doesn't exist")
+			}
+		}
+		fmt.Printf("\nGot error in DeleteBinary %v\n", err)
+		return status.New(codes.Internal, "Couldn't update binary value into db")
+	}
+	return status.New(codes.OK, "Binary deleted")
+
+}
+
+func (repo *Repository) AddCard(clientId uuid.UUID, key string, number string, name string, surname string, expiration string, cvv string, meta string) *status.Status {
+	fmt.Println("AddCard")
+	fmt.Printf("Add data %v, %v, %v, %v, %v, %v, %v\n", number, name, surname, expiration, cvv, key, meta)
+	row := repo.db.QueryRow(
+		`INSERT INTO card (user_id, "key", number, "name", surname, expiration, cvv, meta) 
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+		clientId, key, number, name, surname, expiration, cvv, meta,
+	)
+	var cardIdDb string
+	if err := row.Scan(&cardIdDb); err != nil {
+		if errors.As(err, &psqlErr) {
+			if psqlErr.Code == pgerrcode.ForeignKeyViolation {
+				return status.New(codes.AlreadyExists, "Card for given user and key already exists")
+			}
+		}
+		return status.New(codes.Internal, "Couldn't insert card value into db")
+	}
+	return status.New(codes.OK, "Card added")
+}
+
+func (repo *Repository) UpdateCard(clientId uuid.UUID, key string, number string, name string, surname string, expiration string, cvv string, meta string) *status.Status {
+	fmt.Println("UpdateCard")
+	row := repo.db.QueryRow(
+		`UPDATE card SET "number" = $1, "name" = $2, surname = $3, expiration = $4, cvv = $5, meta = $6
+            WHERE user_id = $7 AND "key" = $8 AND deleted is false RETURNING id`,
+		number, name, surname, expiration, cvv, meta, clientId, key,
+	)
+	var cardId string
+	if err := row.Scan(&cardId); err != nil {
+		if errors.As(err, &psqlErr) {
+			if psqlErr.Code == pgerrcode.ForeignKeyViolation {
+				return status.New(codes.NotFound, "Card for given user and key doesn't exist")
+			}
+		}
+		return status.New(codes.Internal, "Couldn't update card value into db")
+	}
+	return status.New(codes.OK, "Card updated")
+}
+
+func (repo *Repository) GetCard(clientId uuid.UUID, key string) (console.Card, *status.Status) {
+	fmt.Println("GetCard")
+	row := repo.db.QueryRow(
+		`SELECT "number", "name", surname, expiration, cvv, meta FROM card 
+            WHERE user_id = $1 AND "key" = $2 and deleted is false`, clientId, key,
+	)
+	var card console.Card
+	if err := row.Scan(&card.Number, &card.Name, &card.Surname, &card.Expiration, &card.Cvv, &card.Meta); err != nil {
+		if errors.As(err, &psqlErr) {
+			if psqlErr.Code == pgerrcode.ForeignKeyViolation {
+				return console.Card{}, status.New(codes.NotFound, "Card for given user and key doesn't exist")
+			}
+		}
+		return console.Card{}, status.New(codes.Internal, "Couldn't update card value into db")
+	}
+	return card, status.New(codes.OK, "Card updated")
+}
+
+func (repo *Repository) DeleteCard(clientId uuid.UUID, key string) *status.Status {
+	fmt.Println("DeleteCard")
+	row := repo.db.QueryRow("UPDATE card SET deleted = true WHERE user_id = $1 AND \"key\" = $2 RETURNING id", clientId, key)
+	var cardId string
+	if err := row.Scan(&cardId); err != nil {
+		if errors.As(err, &psqlErr) {
+			if psqlErr.Code == pgerrcode.ForeignKeyViolation {
+				return status.New(codes.NotFound, "Card for given user and key doesn't exist")
+			}
+		}
+		return status.New(codes.Internal, "Couldn't delete card value into db")
+	}
+	return status.New(codes.OK, "Card deleted")
 }

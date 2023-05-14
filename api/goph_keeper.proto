@@ -30,7 +30,7 @@ message CardDetails {
   string expiration = 2;
   string name = 3;
   string surname = 4;
-  int32 cvv = 5;
+  string cvv = 5;
   string meta = 6;
   string key = 7;
 }

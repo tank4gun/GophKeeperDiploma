@@ -1,30 +1,20 @@
+//go:build linux || windows || darwin
+
 package main
 
 import (
-	"GophKeeperDiploma/internal/console"
-	"GophKeeperDiploma/internal/sender"
+	"GophKeeperDiploma/internal/client/console"
+	"GophKeeperDiploma/internal/client/sender"
+	"GophKeeperDiploma/internal/client/varprs"
 	"fmt"
 	"log"
 )
 
-var TextChunks = make(chan console.TextData, 10)
-
-//
-//func ReadAndSendText(text console.Text, reqSender sender.Sender) error {
-//	file, err := os.Open(text.Path)
-//	if err != nil {
-//		return err
-//	}
-//	reader := bufio.NewReader(file)
-//	chunk := make([]byte, ChunkSize)
-//
-//	for {
-//		if _, err := reader.Read(chunk); err != nil {
-//			return err
-//		}
-//		TextChunks <- console.TextData{Data: chunk, Meta: text.Meta, Key: text.Key}
-//	}
-//}
+// Use command `go build -ldflags "-X main.Version=1.1.1 -X 'main.BuildTime=$(date +'%Y/%m/%d %H:%M:%S')'" client/main.go`
+var (
+	Version   string // Version - client build version
+	BuildTime string // BuildTime - client build time
+)
 
 func main() {
 	//conn, err := grpc.Dial(":8400", grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -38,6 +28,8 @@ func main() {
 	//if err != nil {
 	//	log.Fatal(err)
 	//}
+	fmt.Printf("Client version %v, buildTime %v\n", Version, BuildTime)
+	varprs.Init()
 	consoleObj := console.NewConsole()
 	reqSender := sender.NewSender()
 	for {
@@ -67,6 +59,16 @@ func main() {
 				if err != nil {
 					log.Fatal(err)
 				}
+			case "bytes":
+				err := reqSender.AddBinary(data.Data.(console.Bytes))
+				if err != nil {
+					log.Fatal(err)
+				}
+			case "card":
+				err := reqSender.AddCard(data.Data.(console.Card))
+				if err != nil {
+					log.Fatal(err)
+				}
 			}
 			fmt.Println("Success")
 		case "update":
@@ -83,6 +85,18 @@ func main() {
 					log.Fatal(err)
 				}
 				fmt.Println("Success")
+			case "bytes":
+				err := reqSender.UpdateBinary(data.Data.(console.Bytes))
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Println("Success")
+			case "card":
+				err := reqSender.UpdateCard(data.Data.(console.Card))
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Println("Success")
 			}
 		case "get":
 			switch data.DataType {
@@ -93,11 +107,26 @@ func main() {
 				}
 				fmt.Printf("Got login_pass data for key %v:\nlogin: %v\npassword: %v\nmeta: %v\n", loginPass.Key, loginPass.Login, loginPass.Password, loginPass.Meta)
 			case "text":
-				filename, err := reqSender.GetText(data.Key)
+				text, err := reqSender.GetText(data.Key)
 				if err != nil {
 					log.Fatal(err)
 				}
-				fmt.Printf("Got text in filename %v\n", filename)
+				fmt.Printf("Got text in filename %v\nmeta: %v\n", text.Path, text.Meta)
+			case "bytes":
+				bytes, err := reqSender.GetBinary(data.Key)
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Printf("Got bytes in filename %v\nmeta: %v\n", bytes.Path, bytes.Meta)
+			case "card":
+				card, err := reqSender.GetCard(data.Key)
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Printf(
+					"Got card number: %v\nname: %v\nsurname: %v\nexpiration_date: %v\ncvv: %v\nmeta: %v\n",
+					card.Number, card.Name, card.Surname, card.Expiration, card.Cvv, card.Meta,
+				)
 			}
 		case "delete":
 			switch data.DataType {
@@ -109,6 +138,18 @@ func main() {
 				fmt.Println("Success")
 			case "text":
 				err := reqSender.DeleteText(data.Key)
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Println("Success")
+			case "bytes":
+				err := reqSender.DeleteBinary(data.Key)
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Println("Success")
+			case "card":
+				err := reqSender.DeleteCard(data.Key)
 				if err != nil {
 					log.Fatal(err)
 				}

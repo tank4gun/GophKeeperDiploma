@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS card
     expiration varchar(100)  NOT NULL,
     "name"     varchar(100)  NOT NULL,
     surname    varchar(100)  NOT NULL,
-    cvv        integer       NOT NULL,
+    cvv        varchar(100)  NOT NULL,
     meta       varchar(1000) NOT NULL,
     deleted    bool default false,
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES client (id)

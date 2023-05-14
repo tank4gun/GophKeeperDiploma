@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"strconv"
 )
 
 type IConsole interface {
@@ -50,7 +49,7 @@ type Card struct {
 	Expiration string
 	Name       string
 	Surname    string
-	Cvv        int
+	Cvv        string
 	Meta       string
 	Key        string
 }
@@ -144,7 +143,7 @@ func (console Console) ParseCard() interface{} {
 	card.Expiration = string(bytes.TrimRight([]byte(card.Expiration), "\n"))
 	fmt.Println("Enter card cvv")
 	cvvStr, _ := console.reader.ReadString('\n')
-	card.Cvv, _ = strconv.Atoi(string(bytes.TrimRight([]byte(cvvStr), "\n")))
+	card.Cvv = string(bytes.TrimRight([]byte(cvvStr), "\n"))
 	fmt.Println("Enter card meta data")
 	card.Meta, _ = console.reader.ReadString('\n')
 	card.Meta = string(bytes.TrimRight([]byte(card.Meta), "\n"))

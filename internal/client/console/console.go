@@ -178,11 +178,27 @@ func (console Console) ParseBytes() interface{} {
 	return bytesObj
 }
 
+var validDataTypes = []string{"login_pass", "card", "text", "bytes"}
+
+func checkInputDataTypeIsValid(inputDataType string) bool {
+	for _, dataType := range validDataTypes {
+		if dataType == inputDataType {
+			return true
+		}
+	}
+	return false
+}
+
 func (console Console) ParseInputDataType() string {
 	fmt.Println("Choose one data type from 'login_pass', 'card', 'text', 'bytes'")
-	inputDataType, _ := console.reader.ReadString('\n')
-	inputDataType = string(bytes.TrimRight([]byte(inputDataType), "\n"))
-	return inputDataType
+	for {
+		inputDataType, _ := console.reader.ReadString('\n')
+		inputDataType = string(bytes.TrimRight([]byte(inputDataType), "\n"))
+		if checkInputDataTypeIsValid(inputDataType) {
+			return inputDataType
+		}
+		fmt.Println("You've entered wrong data type, please choose one from 'login_pass', 'card', 'text', 'bytes'")
+	}
 	//for {
 	//	switch inputDataType {
 	//	case "login_pass":
@@ -208,12 +224,11 @@ func (console Console) ParseKey() string {
 
 func (console Console) ParseCommandCycle() InputData {
 	fmt.Println("Choose one command from 'add', 'get', 'update', 'delete', 'exit'")
-	cmd, _ := console.reader.ReadString('\n')
-	cmd = string(bytes.TrimRight([]byte(cmd), "\n"))
 	for {
+		cmd, _ := console.reader.ReadString('\n')
+		cmd = string(bytes.TrimRight([]byte(cmd), "\n"))
 		switch cmd {
 		case "exit":
-			// Call graceful shutdown
 			return InputData{Command: "exit"}
 		case "add":
 			dataType := console.ParseInputDataType()
@@ -232,6 +247,8 @@ func (console Console) ParseCommandCycle() InputData {
 			dataType := console.ParseInputDataType()
 			key := console.ParseKey()
 			return InputData{Key: key, DataType: dataType, Command: "delete"}
+		default:
+			fmt.Println("You've entered wrong command, please choose one from 'add', 'get', 'update', 'delete', 'exit'")
 		}
 	}
 }

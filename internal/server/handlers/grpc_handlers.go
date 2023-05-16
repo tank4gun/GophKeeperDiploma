@@ -24,7 +24,6 @@ import (
 
 var SecretKey = []byte("jhadaqasd")
 
-// type ClientIDType string
 var ClientIDCtx = "ClientID"
 var ClientTokenCtx = "ClientToken"
 var ChunkSize = 1000
@@ -109,11 +108,6 @@ func Decrypt(data []byte, nonce []byte) ([]byte, error) {
 		fmt.Printf("error2: %v\n", err)
 		return []byte{}, nil
 	}
-	//dataToDecode, err := hex.DecodeString(data)
-	//if err != nil {
-	//	fmt.Printf("error4: %v\n", err)
-	//	return []byte{}, err
-	//}
 	fmt.Printf("\n\nDecrypt Nonce %v, data %v", nonce[:aesgcm.NonceSize()], data)
 	src2, err := aesgcm.Open(nil, nonce[:aesgcm.NonceSize()], data, nil)
 	if err != nil {
@@ -128,7 +122,6 @@ func CreateAuthUnaryInterceptor(storage storage.IRepository) func(ctx context.Co
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		var token string
 		var login string
-		//fmt.Printf("Func name %v", runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name())
 		if md, ok := metadata.FromIncomingContext(ctx); ok {
 			tokenValues := md.Get("ClientToken")
 			if len(tokenValues) > 0 {
@@ -141,15 +134,13 @@ func CreateAuthUnaryInterceptor(storage storage.IRepository) func(ctx context.Co
 		} else {
 			return nil, status.Error(codes.Unauthenticated, "missing token and login")
 		}
-		// TODO: Add it with check for handler name (for register it's ok)
-		//if len(token) == 0 {
-		//	return nil, status.Error(codes.Unauthenticated, "missing client token")
-		//}
+		if len(token) == 0 && info.FullMethod != "/goph_keeper.GophKeeper/Register" && info.FullMethod != "/goph_keeper.GophKeeper/Login" {
+			return nil, status.Error(codes.Unauthenticated, "missing client token")
+		}
 		if len(login) == 0 {
 			return nil, status.Error(codes.Unauthenticated, "missing client login")
 		}
 		fmt.Printf("Login %v, token %v", login, token)
-		// TODO: Add it with storage usage in interceptor
 		client, errCode := storage.GetClientByLogin(login)
 		fmt.Printf("Client %v errCode %v", client, errCode)
 		if errCode == codes.NotFound {
@@ -189,15 +180,13 @@ func CreateAuthStreamInterceptor(storage storage.IRepository) func(srv interface
 		fmt.Println("Oh, hmm!")
 		fmt.Printf("Login %v, token %v", login, token)
 
-		// TODO: Add it with check for handler name (for register it's ok)
-		//if len(token) == 0 {
-		//	return nil, status.Error(codes.Unauthenticated, "missing client token")
-		//}
+		if len(token) == 0 {
+			return status.Error(codes.Unauthenticated, "missing client token")
+		}
 		if len(login) == 0 {
 			return status.Error(codes.Unauthenticated, "missing client login")
 		}
 		fmt.Printf("Login %v, token %v", login, token)
-		// TODO: Add it with storage usage in interceptor
 		client, errCode := storage.GetClientByLogin(login)
 		fmt.Printf("Client %v errCode %v", client, errCode)
 		if errCode == codes.NotFound {
@@ -356,8 +345,12 @@ func (s *Server) AddText(stream pb.GophKeeper_AddTextServer) error {
 			text, err := stream.Recv()
 			if err == io.EOF {
 				writer.Flush()
-				s.storage.AddText(clientId, key, filename, hex.EncodeToString(meta))
-				return stream.SendAndClose(&emptypb.Empty{})
+				statusCode := s.storage.AddText(clientId, key, filename, hex.EncodeToString(meta))
+				stream.SendAndClose(&emptypb.Empty{})
+				if statusCode.Err() != nil {
+					return statusCode.Err()
+				}
+				return nil
 			}
 			if err != nil {
 				return err

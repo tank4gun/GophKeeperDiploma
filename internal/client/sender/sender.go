@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -36,7 +35,6 @@ func CreateClientUnaryInterceptor(sender *Sender) func(ctx context.Context, meth
 	return func(ctx context.Context, method string, req interface{},
 		reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker,
 		opts ...grpc.CallOption) error {
-		fmt.Printf("Login %v, token %v", sender.clientLogin, sender.clientToken)
 		md := metadata.New(map[string]string{"ClientLogin": sender.clientLogin, "ClientToken": sender.clientToken})
 		ctx = metadata.NewOutgoingContext(context.Background(), md)
 		err := invoker(ctx, method, req, reply, cc, opts...)
@@ -46,7 +44,6 @@ func CreateClientUnaryInterceptor(sender *Sender) func(ctx context.Context, meth
 
 func CreateClientStreamInterceptor(sender *Sender) func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-		fmt.Printf("Login %v, token %v", sender.clientLogin, sender.clientToken)
 		md := metadata.New(map[string]string{"ClientLogin": sender.clientLogin, "ClientToken": sender.clientToken})
 		newCtx := metadata.NewOutgoingContext(ctx, md)
 		return streamer(newCtx, desc, cc, method, opts...)
@@ -115,7 +112,9 @@ func (sender *Sender) AddText(text console.Text) error {
 		}
 		err = stream.Send(&pb.Text{Data: hex.EncodeToString(chunk[:n]), Meta: text.Meta, Key: text.Key})
 		if err != nil {
-			return err
+			if e, ok := status.FromError(err); ok {
+				return errors.New(e.Code().String())
+			}
 		}
 	}
 }

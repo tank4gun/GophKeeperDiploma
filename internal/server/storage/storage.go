@@ -41,6 +41,7 @@ type IRepository interface {
 	UpdateCard(clientId uuid.UUID, key string, number string, name string, surname string, expiration string, cvv string, meta string) *status.Status
 	GetCard(clientId uuid.UUID, key string) (console.Card, *status.Status)
 	DeleteCard(clientId uuid.UUID, key string) *status.Status
+	Shutdown() error
 }
 
 type Repository struct {
@@ -56,17 +57,9 @@ func NewRepository(dbDSN string) IRepository {
 	return &Repository{db}
 }
 
-//
-//func (repo *Repository) AddMetaData(value string) (uuid.UUID, int) {
-//	fmt.Println("AddMetaData")
-//	row := repo.db.QueryRow("INSERT INTO meta (value) VALUES ($1) RETURNING id", value)
-//	var metaIdDb string
-//	if err := row.Scan(&metaIdDb); err != nil {
-//		return uuid.UUID{}, http.StatusInternalServerError
-//	}
-//	metaId, _ := uuid.Parse(metaIdDb)
-//	return metaId, http.StatusOK
-//}
+func (repo *Repository) Shutdown() error {
+	return repo.db.Close()
+}
 
 func (repo *Repository) GetClientByLogin(login string) (Client, codes.Code) {
 	row := repo.db.QueryRow("SELECT id, password_hash FROM client WHERE login = $1", login)

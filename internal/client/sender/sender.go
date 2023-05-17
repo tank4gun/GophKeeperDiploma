@@ -56,7 +56,7 @@ func (sender *Sender) AddLoginPassword(loginPass console.LoginPass) error {
 	})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			return errors.New(e.Code().String())
+			return errors.New(e.Message())
 		}
 	}
 	return nil
@@ -68,7 +68,7 @@ func (sender *Sender) UpdateLoginPassword(loginPass console.LoginPass) error {
 	})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			return errors.New(e.Code().String())
+			return errors.New(e.Message())
 		}
 	}
 	return nil
@@ -78,7 +78,7 @@ func (sender *Sender) GetLoginPassword(key string) (console.LoginPass, error) {
 	data, err := sender.client.GetLoginPassword(context.Background(), &pb.Key{Key: key})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			return console.LoginPass{}, errors.New(e.Code().String())
+			return console.LoginPass{}, errors.New(e.Message())
 		}
 	}
 	return console.LoginPass{Login: data.Login, Password: data.Password, Meta: data.Meta, Key: data.Key}, nil
@@ -88,7 +88,7 @@ func (sender *Sender) DeleteLoginPassword(key string) error {
 	_, err := sender.client.DeleteLoginPassword(context.Background(), &pb.Key{Key: key})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			return errors.New(e.Code().String())
+			return errors.New(e.Message())
 		}
 	}
 	return nil
@@ -113,7 +113,7 @@ func (sender *Sender) AddText(text console.Text) error {
 		err = stream.Send(&pb.Text{Data: hex.EncodeToString(chunk[:n]), Meta: text.Meta, Key: text.Key})
 		if err != nil {
 			if e, ok := status.FromError(err); ok {
-				return errors.New(e.Code().String())
+				return errors.New(e.Message())
 			}
 		}
 	}
@@ -121,12 +121,12 @@ func (sender *Sender) AddText(text console.Text) error {
 
 func (sender *Sender) GetText(key string) (console.Text, error) {
 	stream, err := sender.client.GetText(context.Background(), &pb.Key{Key: key})
-	filename := "text_" + key + ".txt"
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			return console.Text{}, errors.New(e.Code().String())
+			return console.Text{}, errors.New(e.Message())
 		}
 	}
+	filename := "text_" + key + ".txt"
 	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0777)
 	if err != nil {
 		return console.Text{}, err
@@ -178,7 +178,7 @@ func (sender *Sender) DeleteText(key string) error {
 	_, err := sender.client.DeleteText(context.Background(), &pb.Key{Key: key})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			return errors.New(e.Code().String())
+			return errors.New(e.Message())
 		}
 		return err
 	}
@@ -213,7 +213,7 @@ func (sender *Sender) GetBinary(key string) (console.Bytes, error) {
 	filename := "binary_" + key + ".bin"
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			return console.Bytes{}, errors.New(e.Code().String())
+			return console.Bytes{}, errors.New(e.Message())
 		}
 	}
 	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0777)
@@ -266,7 +266,7 @@ func (sender *Sender) DeleteBinary(key string) error {
 	_, err := sender.client.DeleteBinary(context.Background(), &pb.Key{Key: key})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			return errors.New(e.Code().String())
+			return errors.New(e.Message())
 		}
 		return err
 	}
@@ -280,7 +280,7 @@ func (sender *Sender) AddCard(card console.Card) error {
 	})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			return errors.New(e.Code().String())
+			return errors.New(e.Message())
 		}
 	}
 	return nil
@@ -293,7 +293,7 @@ func (sender *Sender) UpdateCard(card console.Card) error {
 	})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			return errors.New(e.Code().String())
+			return errors.New(e.Message())
 		}
 	}
 	return nil
@@ -303,7 +303,7 @@ func (sender *Sender) GetCard(key string) (console.Card, error) {
 	data, err := sender.client.GetCard(context.Background(), &pb.Key{Key: key})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			return console.Card{}, errors.New(e.Code().String())
+			return console.Card{}, errors.New(e.Message())
 		}
 	}
 	return console.Card{
@@ -316,7 +316,7 @@ func (sender *Sender) DeleteCard(key string) error {
 	_, err := sender.client.DeleteCard(context.Background(), &pb.Key{Key: key})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			return errors.New(e.Code().String())
+			return errors.New(e.Message())
 		}
 	}
 	return nil
@@ -336,7 +336,7 @@ func (sender *Sender) Register(loginPass console.UserLoginPass) error {
 		result, err := sender.client.Register(context.Background(), &pb.UserData{Login: loginPass.Login, Password: loginPass.Password})
 		if err != nil {
 			if e, ok := status.FromError(err); ok {
-				return errors.New(e.Code().String())
+				return errors.New(e.Message())
 			}
 		}
 		sender.clientToken = result.Token

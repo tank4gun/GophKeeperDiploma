@@ -19,17 +19,6 @@ var (
 )
 
 func main() {
-	//conn, err := grpc.Dial(":8400", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//defer conn.Close()
-	//
-	//client := pb.NewGophKeeperClient(conn)
-	//_, err = client.AddLoginPassword(context.Background(), &pb.LoginPassword{Login: "AAA", Password: "BBB", Key: "CCC", Meta: "DDD"})
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
 	fmt.Printf("Client version %v, buildTime %v\n", Version, BuildTime)
 	varprs.Init()
 	consoleObj := console.NewConsole()
@@ -178,10 +167,4 @@ func main() {
 		}
 		fmt.Println("Sent")
 	}
-	//loginPass := consoleObj.ParseCommandCycle()
-	//err := reqSender.AddLoginPassword(loginPass.(console.LoginPass))
-	//fmt.Println("Sent")
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
 }

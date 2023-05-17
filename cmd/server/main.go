@@ -8,6 +8,7 @@ import (
 	"GophKeeperDiploma/internal/server/varprs"
 	"context"
 	"fmt"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"log"
@@ -20,6 +21,11 @@ import (
 
 func main() {
 	varprs.Init()
+	logFile, err := os.OpenFile(varprs.LogPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0777)
+	if err != nil {
+		logFile = os.Stdout
+	}
+	handlers.Log = zerolog.New(logFile).With().Timestamp().Logger()
 	db.RunMigrations(varprs.DatabaseDSN)
 	newStorage := storage.NewRepository(varprs.DatabaseDSN)
 	creds, err := credentials.NewServerTLSFromFile(varprs.CertCrtPath, varprs.CertKeyPath)

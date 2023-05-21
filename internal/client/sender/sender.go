@@ -27,7 +27,7 @@ type Sender struct {
 	clientLogin string
 }
 
-var ChunkSize = 1000
+const ChunkSize = 1000
 
 func CreateClientUnaryInterceptor(sender *Sender) func(ctx context.Context, method string, req interface{},
 	reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker,

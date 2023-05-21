@@ -19,7 +19,6 @@ type IConsole interface {
 type Console struct {
 	reader         *bufio.Reader
 	TypeToFunction map[string]interface{}
-	//sender sender.Sender
 }
 
 func NewConsole() Console {
@@ -29,7 +28,7 @@ func NewConsole() Console {
 		"card":       Console.ParseCard,
 		"text":       Console.ParseText,
 		"bytes":      Console.ParseBytes,
-	}} // , sender: sender}
+	}}
 }
 
 type UserLoginPass struct {

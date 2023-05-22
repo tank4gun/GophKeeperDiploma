@@ -24,12 +24,19 @@ import (
 	"os"
 )
 
+// SecretKey - const for getting client password hash
 const SecretKey = "jhadaqasd"
+
+// ClientIDCtx - const string for passing client id in context
 const ClientIDCtx = "ClientID"
+
+// ClientTokenCtx - const string for passing client token in context
 const ClientTokenCtx = "ClientToken"
 
+// Log - logger instance
 var Log = zerolog.New(os.Stdout).With().Timestamp().Logger()
 
+// Server - struct for server instance,
 type Server struct {
 	pb.UnimplementedGophKeeperServer
 	storage storage.IRepository
@@ -40,17 +47,30 @@ type serverStreamWrapper struct {
 	ctx context.Context
 }
 
-func (w serverStreamWrapper) Context() context.Context        { return w.ctx }
-func (w serverStreamWrapper) RecvMsg(msg interface{}) error   { return w.ss.RecvMsg(msg) }
-func (w serverStreamWrapper) SendMsg(msg interface{}) error   { return w.ss.SendMsg(msg) }
-func (w serverStreamWrapper) SendHeader(md metadata.MD) error { return w.ss.SendHeader(md) }
-func (w serverStreamWrapper) SetHeader(md metadata.MD) error  { return w.ss.SetHeader(md) }
-func (w serverStreamWrapper) SetTrailer(md metadata.MD)       { w.ss.SetTrailer(md) }
+// Context - get server context
+func (w serverStreamWrapper) Context() context.Context { return w.ctx }
 
+// RecvMsg - receive message
+func (w serverStreamWrapper) RecvMsg(msg interface{}) error { return w.ss.RecvMsg(msg) }
+
+// SendMsg - send message
+func (w serverStreamWrapper) SendMsg(msg interface{}) error { return w.ss.SendMsg(msg) }
+
+// SendHeader - send header instead
+func (w serverStreamWrapper) SendHeader(md metadata.MD) error { return w.ss.SendHeader(md) }
+
+// SetHeader - set header instead
+func (w serverStreamWrapper) SetHeader(md metadata.MD) error { return w.ss.SetHeader(md) }
+
+// SetTrailer - set trailer for metadata
+func (w serverStreamWrapper) SetTrailer(md metadata.MD) { w.ss.SetTrailer(md) }
+
+// NewServer - creates new server instance
 func NewServer(storage storage.IRepository) *Server {
 	return &Server{storage: storage}
 }
 
+// RemoveFileByName - delete file by its name
 func RemoveFileByName(filename string, logger *zerolog.Logger) {
 	err := os.Remove(filename)
 	if err != nil {
@@ -58,6 +78,7 @@ func RemoveFileByName(filename string, logger *zerolog.Logger) {
 	}
 }
 
+// GetHashForClient - calculate hash for given hash
 func GetHashForClient(in *pb.UserData) string {
 	h := hmac.New(sha256.New, []byte(SecretKey))
 	h.Write([]byte(in.Password))

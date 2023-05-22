@@ -240,10 +240,10 @@ func TestServer_AddLoginPassword(t *testing.T) {
 			storageMock.EXPECT().GetClientByLogin(tt.clientLogin).Return(storage.Client{ID: tt.clientID, Login: tt.clientLogin, PasswordHash: tt.passwordHash}, tt.storageErr)
 			clientId, err := uuid.Parse(tt.clientID)
 			storageMock.EXPECT().AddLoginPassword(clientId, tt.key, tt.login, tt.password, tt.meta).Return(tt.storageErr)
-			ctx := context.Background()
+			//ctx := context.Background()
 			md := metadata.New(map[string]string{})
 			md.Set(ClientIDCtx, tt.clientID)
-			ctx = metadata.NewIncomingContext(ctx, md)
+			ctx := metadata.NewIncomingContext(context.Background(), md)
 
 			client, closer := getServer(ctx, storageMock)
 			defer closer()

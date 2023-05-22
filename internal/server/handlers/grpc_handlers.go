@@ -11,6 +11,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -65,25 +66,25 @@ func GetHashForClient(in *pb.UserData) string {
 }
 
 func Encrypt(data []byte, nonce []byte) ([]byte, error) {
-	f, err := os.OpenFile("AAA", os.O_RDONLY, 0777)
+	f, err := os.OpenFile(varprs.CipherKeyPath, os.O_RDONLY, 0777)
 	if err != nil {
-		return []byte{}, errors.Errorf("Can't open file: %w", err)
+		return []byte{}, fmt.Errorf("can't open file: %w", err)
 	}
 	defer f.Close()
 	reader := bufio.NewReader(f)
 	key := make([]byte, aes.BlockSize*2)
 	_, err = reader.Read(key)
 	if err != nil {
-		return []byte{}, errors.Errorf("Can't read from file: %w", err)
+		return []byte{}, fmt.Errorf("can't read from file: %w", err)
 	}
 	aesblock, err := aes.NewCipher(key)
 	if err != nil {
-		return []byte{}, errors.Errorf("Can't create new cipher: %w", err)
+		return []byte{}, fmt.Errorf("can't create new cipher: %w", err)
 	}
 
 	aesgcm, err := cipher.NewGCM(aesblock)
 	if err != nil {
-		return []byte{}, errors.Errorf("Can't create new GCM: %w", err)
+		return []byte{}, fmt.Errorf("can't create new GCM: %w", err)
 	}
 	Log.Debug().Msgf("Encrypt Nonce %v, data %v", nonce[:aesgcm.NonceSize()], data)
 	dst := aesgcm.Seal(nil, nonce[:aesgcm.NonceSize()], data, nil) // зашифровываем
@@ -94,29 +95,29 @@ func Encrypt(data []byte, nonce []byte) ([]byte, error) {
 func Decrypt(data []byte, nonce []byte) ([]byte, error) {
 	f, err := os.OpenFile(varprs.CipherKeyPath, os.O_RDONLY, 0777)
 	if err != nil {
-		return []byte{}, errors.Errorf("Can't open file: %w", err)
+		return []byte{}, fmt.Errorf("can't open file: %w", err)
 	}
 	defer f.Close()
 	reader := bufio.NewReader(f)
 	key := make([]byte, aes.BlockSize*2)
 	_, err = reader.Read(key)
 	if err != nil {
-		return []byte{}, errors.Errorf("Can't read from file: %w", err)
+		return []byte{}, fmt.Errorf("can't read from file: %w", err)
 	}
 	aesblock, err := aes.NewCipher(key)
 	if err != nil {
-		return []byte{}, errors.Errorf("Can't create new cipher: %w", err)
+		return []byte{}, fmt.Errorf("can't create new cipher: %w", err)
 	}
 
 	aesgcm, err := cipher.NewGCM(aesblock)
 	if err != nil {
-		return []byte{}, errors.Errorf("Can't create new GCM: %w", err)
+		return []byte{}, fmt.Errorf("can't create new GCM: %w", err)
 	}
 	Log.Debug().Msgf("Decrypt Nonce %v, data %v", nonce[:aesgcm.NonceSize()], data)
 
 	src2, err := aesgcm.Open(nil, nonce[:aesgcm.NonceSize()], data, nil)
 	if err != nil {
-		return []byte{}, errors.Errorf("Can't decrypt data: %w", err)
+		return []byte{}, fmt.Errorf("can't decrypt data: %w", err)
 	}
 	Log.Debug().Msgf("decrypted: %v", src2)
 	return src2, nil
@@ -266,6 +267,7 @@ func (s *Server) AddLoginPassword(ctx context.Context, in *pb.LoginPassword) (*e
 		logger.Error().Msg("Can't get metadata from request context")
 		return &emptypb.Empty{}, status.New(codes.Internal, "Something went wrong").Err()
 	} else {
+		fmt.Println(md)
 		clientIDValues := md.Get(ClientIDCtx)
 		clientIDValue := clientIDValues[0]
 		clientId, err := uuid.Parse(clientIDValue)
@@ -293,6 +295,7 @@ func (s *Server) AddLoginPassword(ctx context.Context, in *pb.LoginPassword) (*e
 			logger.Error().Err(err).Msg("Can't encrypt meta")
 			return &emptypb.Empty{}, status.New(codes.Internal, "Can't encrypt meta").Err()
 		}
+		fmt.Println(hex.EncodeToString(login), hex.EncodeToString(password), hex.EncodeToString(meta))
 		statusCode := s.storage.AddLoginPassword(
 			clientId, in.Key, hex.EncodeToString(login), hex.EncodeToString(password), hex.EncodeToString(meta),
 		)

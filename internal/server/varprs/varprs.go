@@ -20,6 +20,7 @@ var CipherKeyPath string
 // LogPath - Path to log file
 var LogPath string
 
+// Init - parse flags
 func Init() {
 	flag.StringVar(&CertCrtPath, "crt", "/home/glebov-da/GoStudying/repo/GophKeeperDiploma/cmd/localhost.crt", "Path to crt file for TLS")
 	flag.StringVar(&CertKeyPath, "key", "/home/glebov-da/GoStudying/repo/GophKeeperDiploma/cmd/localhost.key", "Path to key file for TLS")

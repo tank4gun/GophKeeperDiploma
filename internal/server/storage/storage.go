@@ -14,40 +14,44 @@ import (
 	"log"
 )
 
+// Client - struct for storage add/get client data
 type Client struct {
-	ID           string
-	Login        string
-	PasswordHash string
+	ID           string // ID - client db id
+	Login        string // Login - client Login
+	PasswordHash string // PasswordHash - client password hash
 }
 
 var psqlErr *pgconn.PgError // ERROR postgres package has not type or method
 
+// IRepository - interface for repository
 type IRepository interface {
-	GetClientByLogin(login string) (Client, *status.Status)
-	AddClient(login string, passwordHash string) *status.Status
-	AddLoginPassword(clientId uuid.UUID, key string, login string, password string, meta string) *status.Status
-	UpdateLoginPassword(clientId uuid.UUID, key string, login string, password string, meta string) *status.Status
-	GetLoginPassword(clientId uuid.UUID, key string) (console.LoginPass, *status.Status)
-	DeleteLoginPassword(clientId uuid.UUID, key string) *status.Status
-	AddText(clientId uuid.UUID, key string, path string, meta string) *status.Status
-	GetText(clientId uuid.UUID, key string) (console.Text, *status.Status)
-	UpdateText(clientId uuid.UUID, key string, filename string, meta string) *status.Status
-	DeleteText(clientId uuid.UUID, key string) *status.Status
-	AddBinary(clientId uuid.UUID, key string, path string, meta string) *status.Status
-	GetBinary(clientId uuid.UUID, key string) (console.Bytes, *status.Status)
-	UpdateBinary(clientId uuid.UUID, key string, filename string, meta string) *status.Status
-	DeleteBinary(clientId uuid.UUID, key string) *status.Status
-	AddCard(clientId uuid.UUID, key string, number string, name string, surname string, expiration string, cvv string, meta string) *status.Status
-	UpdateCard(clientId uuid.UUID, key string, number string, name string, surname string, expiration string, cvv string, meta string) *status.Status
-	GetCard(clientId uuid.UUID, key string) (console.Card, *status.Status)
-	DeleteCard(clientId uuid.UUID, key string) *status.Status
-	Shutdown() error
+	GetClientByLogin(login string) (Client, *status.Status)                                                                                           // GetClientByLogin - get client data by login
+	AddClient(login string, passwordHash string) *status.Status                                                                                       // AddClient - add new client data
+	AddLoginPassword(clientId uuid.UUID, key string, login string, password string, meta string) *status.Status                                       // AddLoginPassword - add new login password data
+	UpdateLoginPassword(clientId uuid.UUID, key string, login string, password string, meta string) *status.Status                                    // UpdateLoginPassword - update existing login password data
+	GetLoginPassword(clientId uuid.UUID, key string) (console.LoginPass, *status.Status)                                                              // GetLoginPassword - get existing login password data
+	DeleteLoginPassword(clientId uuid.UUID, key string) *status.Status                                                                                // DeleteLoginPassword - delete existing login password data
+	AddText(clientId uuid.UUID, key string, path string, meta string) *status.Status                                                                  // AddText - add text data
+	GetText(clientId uuid.UUID, key string) (console.Text, *status.Status)                                                                            // GetText - get text data
+	UpdateText(clientId uuid.UUID, key string, filename string, meta string) *status.Status                                                           // UpdateText - update text data
+	DeleteText(clientId uuid.UUID, key string) *status.Status                                                                                         // DeleteText - delete text data
+	AddBinary(clientId uuid.UUID, key string, path string, meta string) *status.Status                                                                // AddBinary - add binary data
+	GetBinary(clientId uuid.UUID, key string) (console.Bytes, *status.Status)                                                                         // GetBinary - get binary data
+	UpdateBinary(clientId uuid.UUID, key string, filename string, meta string) *status.Status                                                         // UpdateBinary - update binary data
+	DeleteBinary(clientId uuid.UUID, key string) *status.Status                                                                                       // DeleteBinary - delete binary data
+	AddCard(clientId uuid.UUID, key string, number string, name string, surname string, expiration string, cvv string, meta string) *status.Status    // AddCard - add card data
+	UpdateCard(clientId uuid.UUID, key string, number string, name string, surname string, expiration string, cvv string, meta string) *status.Status // UpdateCard - update card data
+	GetCard(clientId uuid.UUID, key string) (console.Card, *status.Status)                                                                            // GetCard - get card data
+	DeleteCard(clientId uuid.UUID, key string) *status.Status                                                                                         // DeleteCard - delete card data
+	Shutdown() error                                                                                                                                  // Shutdown - shutdown repository
 }
 
+// Repository - struct with db object
 type Repository struct {
 	db *sql.DB
 }
 
+// NewRepository - create new repository
 func NewRepository(dbDSN string) IRepository {
 	db, err := sql.Open("pgx", dbDSN)
 	if err != nil {
@@ -57,10 +61,12 @@ func NewRepository(dbDSN string) IRepository {
 	return &Repository{db}
 }
 
+// Shutdown - shutdown repository
 func (repo *Repository) Shutdown() error {
 	return repo.db.Close()
 }
 
+// GetClientByLogin - get client data by login
 func (repo *Repository) GetClientByLogin(login string) (Client, *status.Status) {
 	row := repo.db.QueryRow("SELECT id, password_hash FROM client WHERE login = $1", login)
 	client := Client{Login: login}
@@ -74,6 +80,7 @@ func (repo *Repository) GetClientByLogin(login string) (Client, *status.Status) 
 	return client, status.New(codes.OK, "Client found")
 }
 
+// AddClient - add client data
 func (repo *Repository) AddClient(login string, passwordHash string) *status.Status {
 	row := repo.db.QueryRow("INSERT INTO client (login, password_hash) VALUES ($1, $2) RETURNING id", login, passwordHash)
 	var clientID string
@@ -88,6 +95,7 @@ func (repo *Repository) AddClient(login string, passwordHash string) *status.Sta
 	return status.New(codes.OK, "Client added")
 }
 
+// AddLoginPassword - add new login password data
 func (repo *Repository) AddLoginPassword(clientId uuid.UUID, key string, login string, password string, meta string) *status.Status {
 	fmt.Println("AddLoginPassword")
 	row := repo.db.QueryRow("INSERT INTO login_password (user_id, \"key\", \"login\", \"password\", meta) VALUES ($1, $2, $3, $4, $5) RETURNING id", clientId, key, login, password, meta)
@@ -103,6 +111,7 @@ func (repo *Repository) AddLoginPassword(clientId uuid.UUID, key string, login s
 	return status.New(codes.OK, "Value added")
 }
 
+// UpdateLoginPassword - update login password data
 func (repo *Repository) UpdateLoginPassword(clientId uuid.UUID, key string, login string, password string, meta string) *status.Status {
 	fmt.Println("UpdateLoginPassword")
 	row := repo.db.QueryRow("UPDATE login_password SET \"login\" = $1, \"password\" = $2, meta = $3 WHERE user_id = $4 AND \"key\" = $5 AND deleted is false RETURNING id", login, password, meta, clientId, key)
@@ -117,6 +126,7 @@ func (repo *Repository) UpdateLoginPassword(clientId uuid.UUID, key string, logi
 	return status.New(codes.OK, "Value updated")
 }
 
+// GetLoginPassword - get login password data
 func (repo *Repository) GetLoginPassword(clientId uuid.UUID, key string) (console.LoginPass, *status.Status) {
 	fmt.Println("GetLoginPassword")
 	row := repo.db.QueryRow("SELECT \"login\", \"password\", meta FROM login_password WHERE user_id = $1 AND \"key\" = $2 AND deleted is false", clientId, key)
@@ -131,6 +141,7 @@ func (repo *Repository) GetLoginPassword(clientId uuid.UUID, key string) (consol
 	return loginPassword, status.New(codes.OK, "Value updated")
 }
 
+// DeleteLoginPassword - delete login password data
 func (repo *Repository) DeleteLoginPassword(clientId uuid.UUID, key string) *status.Status {
 	fmt.Println("DeleteLoginPassword")
 	row := repo.db.QueryRow("UPDATE login_password SET deleted = true WHERE user_id = $1 AND \"key\" = $2 RETURNING id", clientId, key)
@@ -145,6 +156,7 @@ func (repo *Repository) DeleteLoginPassword(clientId uuid.UUID, key string) *sta
 	return status.New(codes.OK, "Value deleted")
 }
 
+// AddText - add text data
 func (repo *Repository) AddText(clientId uuid.UUID, key string, path string, meta string) *status.Status {
 	fmt.Println("AddText")
 	row := repo.db.QueryRow("INSERT INTO text (user_id, \"key\", \"path\", meta) VALUES ($1, $2, $3, $4) RETURNING id", clientId, key, path, meta)
@@ -160,6 +172,7 @@ func (repo *Repository) AddText(clientId uuid.UUID, key string, path string, met
 	return status.New(codes.OK, "Value added")
 }
 
+// GetText - get text data
 func (repo *Repository) GetText(clientId uuid.UUID, key string) (console.Text, *status.Status) {
 	fmt.Println("GetText")
 	row := repo.db.QueryRow("SELECT \"path\", meta FROM text WHERE user_id = $1 AND \"key\" = $2 AND deleted is false", clientId, key)
@@ -174,6 +187,7 @@ func (repo *Repository) GetText(clientId uuid.UUID, key string) (console.Text, *
 	return text, status.New(codes.OK, "Text found")
 }
 
+// UpdateText - update text data
 func (repo *Repository) UpdateText(clientId uuid.UUID, key string, filename string, meta string) *status.Status {
 	fmt.Println("UpdateText")
 	row := repo.db.QueryRow("UPDATE text SET \"path\" = $1, meta = $2 WHERE user_id = $3 AND \"key\" = $4 AND deleted is false RETURNING id", filename, meta, clientId, key)
@@ -193,6 +207,7 @@ func (repo *Repository) UpdateText(clientId uuid.UUID, key string, filename stri
 	return status.New(codes.OK, "Text updated")
 }
 
+// DeleteText - delete text data
 func (repo *Repository) DeleteText(clientId uuid.UUID, key string) *status.Status {
 	fmt.Println("DeleteText")
 	row := repo.db.QueryRow("UPDATE text SET deleted = true WHERE user_id = $1 AND \"key\" = $2 RETURNING id", clientId, key)
@@ -209,6 +224,7 @@ func (repo *Repository) DeleteText(clientId uuid.UUID, key string) *status.Statu
 
 }
 
+// AddBinary - add binary data
 func (repo *Repository) AddBinary(clientId uuid.UUID, key string, path string, meta string) *status.Status {
 	fmt.Println("AddBinary")
 	row := repo.db.QueryRow("INSERT INTO \"binary\" (user_id, \"key\", \"path\", meta) VALUES ($1, $2, $3, $4) RETURNING id", clientId, key, path, meta)
@@ -224,6 +240,7 @@ func (repo *Repository) AddBinary(clientId uuid.UUID, key string, path string, m
 	return status.New(codes.OK, "Value added")
 }
 
+// GetBinary - get binary data
 func (repo *Repository) GetBinary(clientId uuid.UUID, key string) (console.Bytes, *status.Status) {
 	fmt.Println("GetBinary")
 	row := repo.db.QueryRow("SELECT \"path\", meta FROM \"binary\" WHERE user_id = $1 AND \"key\" = $2 AND deleted is false", clientId, key)
@@ -238,6 +255,7 @@ func (repo *Repository) GetBinary(clientId uuid.UUID, key string) (console.Bytes
 	return binary, status.New(codes.OK, "Binary found")
 }
 
+// UpdateBinary - update binary data
 func (repo *Repository) UpdateBinary(clientId uuid.UUID, key string, filename string, meta string) *status.Status {
 	fmt.Println("UpdateBinary")
 	row := repo.db.QueryRow("UPDATE \"binary\" SET \"path\" = $1, meta = $2 WHERE user_id = $3 AND \"key\" = $4 AND deleted is false RETURNING id", filename, meta, clientId, key)
@@ -257,6 +275,7 @@ func (repo *Repository) UpdateBinary(clientId uuid.UUID, key string, filename st
 	return status.New(codes.OK, "Binary updated")
 }
 
+// DeleteBinary - delete binary data
 func (repo *Repository) DeleteBinary(clientId uuid.UUID, key string) *status.Status {
 	fmt.Println("DeleteBinary")
 	row := repo.db.QueryRow("UPDATE \"binary\" SET deleted = true WHERE user_id = $1 AND \"key\" = $2 RETURNING id", clientId, key)
@@ -273,6 +292,7 @@ func (repo *Repository) DeleteBinary(clientId uuid.UUID, key string) *status.Sta
 
 }
 
+// AddCard - add card data
 func (repo *Repository) AddCard(clientId uuid.UUID, key string, number string, name string, surname string, expiration string, cvv string, meta string) *status.Status {
 	fmt.Println("AddCard")
 	row := repo.db.QueryRow(
@@ -293,6 +313,7 @@ func (repo *Repository) AddCard(clientId uuid.UUID, key string, number string, n
 	return status.New(codes.OK, "Card added")
 }
 
+// UpdateCard - update card data
 func (repo *Repository) UpdateCard(clientId uuid.UUID, key string, number string, name string, surname string, expiration string, cvv string, meta string) *status.Status {
 	fmt.Println("UpdateCard")
 	row := repo.db.QueryRow(
@@ -317,6 +338,7 @@ func (repo *Repository) UpdateCard(clientId uuid.UUID, key string, number string
 	return status.New(codes.OK, "Card updated")
 }
 
+// GetCard - get card data
 func (repo *Repository) GetCard(clientId uuid.UUID, key string) (console.Card, *status.Status) {
 	fmt.Println("GetCard")
 	row := repo.db.QueryRow(
@@ -335,6 +357,7 @@ func (repo *Repository) GetCard(clientId uuid.UUID, key string) (console.Card, *
 	return card, status.New(codes.OK, "Card updated")
 }
 
+// DeleteCard - delete card data
 func (repo *Repository) DeleteCard(clientId uuid.UUID, key string) *status.Status {
 	fmt.Println("DeleteCard")
 	row := repo.db.QueryRow("UPDATE card SET deleted = true WHERE user_id = $1 AND \"key\" = $2 RETURNING id", clientId, key)

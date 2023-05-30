@@ -1,45 +1,37 @@
+//go:build linux || windows || darwin
+
 package main
 
 import (
-	"GophKeeperDiploma/internal/console"
-	"GophKeeperDiploma/internal/sender"
+	"GophKeeperDiploma/internal/client/console"
+	"GophKeeperDiploma/internal/client/sender"
+	"GophKeeperDiploma/internal/client/varprs"
 	"fmt"
-	"log"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
-var TextChunks = make(chan console.TextData, 10)
-
-//
-//func ReadAndSendText(text console.Text, reqSender sender.Sender) error {
-//	file, err := os.Open(text.Path)
-//	if err != nil {
-//		return err
-//	}
-//	reader := bufio.NewReader(file)
-//	chunk := make([]byte, ChunkSize)
-//
-//	for {
-//		if _, err := reader.Read(chunk); err != nil {
-//			return err
-//		}
-//		TextChunks <- console.TextData{Data: chunk, Meta: text.Meta, Key: text.Key}
-//	}
-//}
+// Use command `go build -ldflags "-X main.Version=1.1.1 -X 'main.BuildTime=$(date +'%Y/%m/%d %H:%M:%S')'" client/main.go`
+var (
+	Version   string // Version - client build version
+	BuildTime string // BuildTime - client build time
+)
 
 func main() {
-	//conn, err := grpc.Dial(":8400", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//defer conn.Close()
-	//
-	//client := pb.NewGophKeeperClient(conn)
-	//_, err = client.AddLoginPassword(context.Background(), &pb.LoginPassword{Login: "AAA", Password: "BBB", Key: "CCC", Meta: "DDD"})
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
+	fmt.Printf("Client version %v, buildTime %v\n", Version, BuildTime)
+	varprs.Init()
 	consoleObj := console.NewConsole()
 	reqSender := sender.NewSender()
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+
+	go func() {
+		<-sigChan
+		fmt.Println("Exit client, see you!")
+		os.Exit(0)
+	}()
+
 	for {
 		userLoginPass := consoleObj.Start()
 		err := reqSender.Register(userLoginPass)
@@ -54,18 +46,32 @@ func main() {
 		data := consoleObj.ParseCommandCycle()
 		switch data.Command {
 		case "exit":
-			return
+			sigChan <- syscall.SIGTERM
 		case "add":
 			switch data.DataType {
 			case "login_pass":
 				err := reqSender.AddLoginPassword(data.Data.(console.LoginPass))
 				if err != nil {
-					log.Fatal(err)
+					fmt.Printf("Got error: %v\n", err)
+					continue
 				}
 			case "text":
 				err := reqSender.AddText(data.Data.(console.Text))
 				if err != nil {
-					log.Fatal(err)
+					fmt.Printf("Got error: %v\n", err)
+					continue
+				}
+			case "bytes":
+				err := reqSender.AddBinary(data.Data.(console.Bytes))
+				if err != nil {
+					fmt.Printf("Got error: %v\n", err)
+					continue
+				}
+			case "card":
+				err := reqSender.AddCard(data.Data.(console.Card))
+				if err != nil {
+					fmt.Printf("Got error: %v\n", err)
+					continue
 				}
 			}
 			fmt.Println("Success")
@@ -74,53 +80,91 @@ func main() {
 			case "login_pass":
 				err := reqSender.UpdateLoginPassword(data.Data.(console.LoginPass))
 				if err != nil {
-					log.Fatal(err)
+					fmt.Printf("Got error: %v\n", err)
+					continue
 				}
-				fmt.Println("Success")
 			case "text":
 				err := reqSender.UpdateText(data.Data.(console.Text))
 				if err != nil {
-					log.Fatal(err)
+					fmt.Printf("Got error: %v\n", err)
+					continue
 				}
-				fmt.Println("Success")
+			case "bytes":
+				err := reqSender.UpdateBinary(data.Data.(console.Bytes))
+				if err != nil {
+					fmt.Printf("Got error: %v\n", err)
+					continue
+				}
+			case "card":
+				err := reqSender.UpdateCard(data.Data.(console.Card))
+				if err != nil {
+					fmt.Printf("Got error: %v\n", err)
+					continue
+				}
 			}
+			fmt.Println("Success")
 		case "get":
 			switch data.DataType {
 			case "login_pass":
 				loginPass, err := reqSender.GetLoginPassword(data.Key)
 				if err != nil {
-					log.Fatal(err)
+					fmt.Printf("Got error: %v\n", err)
+					continue
 				}
 				fmt.Printf("Got login_pass data for key %v:\nlogin: %v\npassword: %v\nmeta: %v\n", loginPass.Key, loginPass.Login, loginPass.Password, loginPass.Meta)
 			case "text":
-				filename, err := reqSender.GetText(data.Key)
+				text, err := reqSender.GetText(data.Key)
 				if err != nil {
-					log.Fatal(err)
+					fmt.Printf("Got error: %v\n", err)
+					continue
 				}
-				fmt.Printf("Got text in filename %v\n", filename)
+				fmt.Printf("Got text in filename %v\nmeta: %v\n", text.Path, text.Meta)
+			case "bytes":
+				bytes, err := reqSender.GetBinary(data.Key)
+				if err != nil {
+					fmt.Printf("Got error: %v\n", err)
+					continue
+				}
+				fmt.Printf("Got bytes in filename %v\nmeta: %v\n", bytes.Path, bytes.Meta)
+			case "card":
+				card, err := reqSender.GetCard(data.Key)
+				if err != nil {
+					fmt.Printf("Got error: %v\n", err)
+					continue
+				}
+				fmt.Printf(
+					"Got card number: %v\nname: %v\nsurname: %v\nexpiration_date: %v\ncvv: %v\nmeta: %v\n",
+					card.Number, card.Name, card.Surname, card.Expiration, card.Cvv, card.Meta,
+				)
 			}
 		case "delete":
 			switch data.DataType {
 			case "login_pass":
 				err := reqSender.DeleteLoginPassword(data.Key)
 				if err != nil {
-					log.Fatal(err)
+					fmt.Printf("Got error: %v\n", err)
+					continue
 				}
-				fmt.Println("Success")
 			case "text":
 				err := reqSender.DeleteText(data.Key)
 				if err != nil {
-					log.Fatal(err)
+					fmt.Printf("Got error: %v\n", err)
+					continue
 				}
-				fmt.Println("Success")
+			case "bytes":
+				err := reqSender.DeleteBinary(data.Key)
+				if err != nil {
+					fmt.Printf("Got error: %v\n", err)
+				}
+			case "card":
+				err := reqSender.DeleteCard(data.Key)
+				if err != nil {
+					fmt.Printf("Got error: %v\n", err)
+					continue
+				}
 			}
+			fmt.Println("Success")
 		}
 		fmt.Println("Sent")
 	}
-	//loginPass := consoleObj.ParseCommandCycle()
-	//err := reqSender.AddLoginPassword(loginPass.(console.LoginPass))
-	//fmt.Println("Sent")
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
 }

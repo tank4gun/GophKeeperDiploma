@@ -1,13 +1,14 @@
 package console
 
 import (
+	"GophKeeperDiploma/internal/client/validator"
 	"bufio"
 	"bytes"
 	"fmt"
 	"os"
-	"strconv"
 )
 
+// IConsole - interface for console process
 type IConsole interface {
 	Start() UserLoginPass
 	ParseLoginPass() LoginPass
@@ -16,12 +17,13 @@ type IConsole interface {
 	ParseCommandCycle() LoginPass
 }
 
+// Console - struct for console process
 type Console struct {
 	reader         *bufio.Reader
 	TypeToFunction map[string]interface{}
-	//sender sender.Sender
 }
 
+// NewConsole - create new Console object
 func NewConsole() Console {
 	reader := bufio.NewReader(os.Stdin)
 	return Console{reader: reader, TypeToFunction: map[string]interface{}{
@@ -29,55 +31,54 @@ func NewConsole() Console {
 		"card":       Console.ParseCard,
 		"text":       Console.ParseText,
 		"bytes":      Console.ParseBytes,
-	}} // , sender: sender}
+	}}
 }
 
+// UserLoginPass - struct for user login password
 type UserLoginPass struct {
-	Login    string
-	Password string
-	Command  string
+	Login    string // Login - client login
+	Password string // Password - client password
+	Command  string // Command - client command
 }
 
+// LoginPass - struct for login password data
 type LoginPass struct {
-	Login    string
-	Password string
-	Meta     string
-	Key      string
+	Login    string // Login - data login
+	Password string // Password - data password
+	Meta     string // Meta - data meta
+	Key      string // Key - data key
 }
 
+// Card - struct for card data
 type Card struct {
-	Number     string
-	Expiration string
-	Name       string
-	Surname    string
-	Cvv        int
-	Meta       string
-	Key        string
+	Number     string // Number - data number
+	Expiration string // Expiration - data expiration
+	Name       string // Name - data name
+	Surname    string // Surname - data surname
+	Cvv        string // Cvv - data cvv
+	Meta       string // Meta - data meta
+	Key        string // Key - data key
 }
 
+// Text - struct for text data
 type Text struct {
-	Path string
-	Meta string
-	Key  string
+	Path string // Path - data path
+	Meta string // Meta - data meta
+	Key  string // Key - data key
 }
 
-type TextData struct {
-	Data []byte
-	Meta string
-	Key  string
-}
-
+// Bytes - struct for bytes data
 type Bytes struct {
-	Path string
-	Meta string
-	Key  string
+	Path string // Path - bytes path
+	Meta string // Meta - data meta
+	Key  string // Key - data key
 }
 
 type InputData struct {
 	Command  string
 	DataType string
 	Data     interface{}
-	Key      string
+	Key      string // Key - data key
 }
 
 type GetDataRequest struct {
@@ -85,6 +86,7 @@ type GetDataRequest struct {
 	dataType string
 }
 
+// Start - start console process
 func (console Console) Start() UserLoginPass {
 	fmt.Println("GophKeeper started. Enter 'sign_up' for register new user or 'sign_in' for login to existing one")
 	inputCmd, _ := console.reader.ReadString('\n')
@@ -108,28 +110,47 @@ func (console Console) Start() UserLoginPass {
 	return loginPass
 }
 
+// ParseStringWithLength - parse string and check its length
+func (console Console) ParseStringWithLength(token string, length int) string {
+	fmt.Printf("Enter %v\n", token)
+	for {
+		key, _ := console.reader.ReadString('\n')
+		key = string(bytes.TrimRight([]byte(key), "\n"))
+		if validator.CheckStringToken(key, length) {
+			return key
+		}
+		fmt.Printf("%v length should be at least %v\n", token, length)
+	}
+}
+
+// ParseFilePath - parse file path and check its existence
+func (console Console) ParseFilePath(token string) string {
+	fmt.Printf("Enter %v file path\n", token)
+	for {
+		path, _ := console.reader.ReadString('\n')
+		path = string(bytes.TrimRight([]byte(path), "\n"))
+		if validator.CheckFileExistence(path) {
+			return path
+		}
+		fmt.Printf("Couldn't open %v file path, enter another one\n", token)
+	}
+
+}
+
+// ParseLoginPass - parse login password input data
 func (console Console) ParseLoginPass() interface{} {
-	fmt.Println("Enter key")
 	loginPass := LoginPass{}
-	loginPass.Key, _ = console.reader.ReadString('\n')
-	loginPass.Key = string(bytes.TrimRight([]byte(loginPass.Key), "\n"))
-	fmt.Println("Enter login")
-	loginPass.Login, _ = console.reader.ReadString('\n')
-	loginPass.Login = string(bytes.TrimRight([]byte(loginPass.Login), "\n"))
-	fmt.Println("Enter password")
-	loginPass.Password, _ = console.reader.ReadString('\n')
-	loginPass.Password = string(bytes.TrimRight([]byte(loginPass.Password), "\n"))
-	fmt.Println("Enter meta data")
-	loginPass.Meta, _ = console.reader.ReadString('\n')
-	loginPass.Meta = string(bytes.TrimRight([]byte(loginPass.Meta), "\n"))
+	loginPass.Key = console.ParseStringWithLength("Key", 3)
+	loginPass.Login = console.ParseStringWithLength("Login", 5)
+	loginPass.Password = console.ParseStringWithLength("Password", 6)
+	loginPass.Meta = console.ParseStringWithLength("Meta", 0)
 	return loginPass
 }
 
+// ParseCard - parse card input data
 func (console Console) ParseCard() interface{} {
-	fmt.Println("Enter card key")
 	card := Card{}
-	card.Key, _ = console.reader.ReadString('\n')
-	card.Key = string(bytes.TrimRight([]byte(card.Key), "\n"))
+	card.Key = console.ParseStringWithLength("Key", 3)
 	fmt.Println("Enter card number")
 	card.Number, _ = console.reader.ReadString('\n')
 	card.Number = string(bytes.TrimRight([]byte(card.Number), "\n"))
@@ -144,77 +165,61 @@ func (console Console) ParseCard() interface{} {
 	card.Expiration = string(bytes.TrimRight([]byte(card.Expiration), "\n"))
 	fmt.Println("Enter card cvv")
 	cvvStr, _ := console.reader.ReadString('\n')
-	card.Cvv, _ = strconv.Atoi(string(bytes.TrimRight([]byte(cvvStr), "\n")))
-	fmt.Println("Enter card meta data")
-	card.Meta, _ = console.reader.ReadString('\n')
-	card.Meta = string(bytes.TrimRight([]byte(card.Meta), "\n"))
+	card.Cvv = string(bytes.TrimRight([]byte(cvvStr), "\n"))
+	card.Meta = console.ParseStringWithLength("Meta", 0)
 	return card
 }
 
+// ParseText - parse text input data
 func (console Console) ParseText() interface{} {
-	fmt.Println("Enter text key")
 	text := Text{}
-	text.Key, _ = console.reader.ReadString('\n')
-	text.Key = string(bytes.TrimRight([]byte(text.Key), "\n"))
-	fmt.Println("Enter text file path")
-	text.Path, _ = console.reader.ReadString('\n')
-	text.Path = string(bytes.TrimRight([]byte(text.Path), "\n"))
-	fmt.Println("Enter text meta data")
-	text.Meta, _ = console.reader.ReadString('\n')
-	text.Meta = string(bytes.TrimRight([]byte(text.Meta), "\n"))
+	text.Key = console.ParseStringWithLength("Key", 3)
+	text.Path = console.ParseFilePath("text")
+	text.Meta = console.ParseStringWithLength("Meta", 0)
 	return text
 }
 
+// ParseBytes - parse bytes input data
 func (console Console) ParseBytes() interface{} {
-	fmt.Println("Enter bytes key")
 	bytesObj := Bytes{}
-	bytesObj.Key, _ = console.reader.ReadString('\n')
-	bytesObj.Key = string(bytes.TrimRight([]byte(bytesObj.Key), "\n"))
-	fmt.Println("Enter bytes file path")
-	bytesObj.Path, _ = console.reader.ReadString('\n')
-	bytesObj.Path = string(bytes.TrimRight([]byte(bytesObj.Path), "\n"))
-	fmt.Println("Enter bytes meta data")
-	bytesObj.Meta, _ = console.reader.ReadString('\n')
-	bytesObj.Meta = string(bytes.TrimRight([]byte(bytesObj.Meta), "\n"))
+	bytesObj.Key = console.ParseStringWithLength("Key", 3)
+	bytesObj.Path = console.ParseFilePath("bytes")
+	bytesObj.Meta = console.ParseStringWithLength("Meta", 0)
 	return bytesObj
 }
 
+var validDataTypes = []string{"login_pass", "card", "text", "bytes"}
+
+func checkInputDataTypeIsValid(inputDataType string) bool {
+	for _, dataType := range validDataTypes {
+		if dataType == inputDataType {
+			return true
+		}
+	}
+	return false
+}
+
+// ParseInputDataType - parse input data type
 func (console Console) ParseInputDataType() string {
 	fmt.Println("Choose one data type from 'login_pass', 'card', 'text', 'bytes'")
-	inputDataType, _ := console.reader.ReadString('\n')
-	inputDataType = string(bytes.TrimRight([]byte(inputDataType), "\n"))
-	return inputDataType
-	//for {
-	//	switch inputDataType {
-	//	case "login_pass":
-	//		return loginPass, "login_pass"
-	//		//_ = console.sender.AddLoginPassword(loginPass)
-	//	case "card":
-	//		cardDetails := console.ParseCard()
-	//		return cardDetails, "card"
-	//		//case "text":
-	//		//	text := console.ParseText()
-	//		//case "bytes":
-	//		//	bytes := console.ParseBytes()
-	//	}
-	//}
+	for {
+		inputDataType, _ := console.reader.ReadString('\n')
+		inputDataType = string(bytes.TrimRight([]byte(inputDataType), "\n"))
+		if checkInputDataTypeIsValid(inputDataType) {
+			return inputDataType
+		}
+		fmt.Println("You've entered wrong data type, please choose one from 'login_pass', 'card', 'text', 'bytes'")
+	}
 }
 
-func (console Console) ParseKey() string {
-	fmt.Println("Enter key")
-	key, _ := console.reader.ReadString('\n')
-	key = string(bytes.TrimRight([]byte(key), "\n"))
-	return key
-}
-
+// ParseCommandCycle - parse command in cycle
 func (console Console) ParseCommandCycle() InputData {
 	fmt.Println("Choose one command from 'add', 'get', 'update', 'delete', 'exit'")
-	cmd, _ := console.reader.ReadString('\n')
-	cmd = string(bytes.TrimRight([]byte(cmd), "\n"))
 	for {
+		cmd, _ := console.reader.ReadString('\n')
+		cmd = string(bytes.TrimRight([]byte(cmd), "\n"))
 		switch cmd {
 		case "exit":
-			// Call graceful shutdown
 			return InputData{Command: "exit"}
 		case "add":
 			dataType := console.ParseInputDataType()
@@ -222,26 +227,24 @@ func (console Console) ParseCommandCycle() InputData {
 			return InputData{Data: data, DataType: dataType, Command: "add"}
 		case "get":
 			dataType := console.ParseInputDataType()
-			key := console.ParseKey()
+			key := console.ParseStringWithLength("Key", 3)
 			return InputData{Key: key, DataType: dataType, Command: "get"}
 		case "update":
-			//key := console.ParseKey()
 			dataType := console.ParseInputDataType()
 			data := console.TypeToFunction[dataType].(func(console Console) interface{})(console)
 			return InputData{Data: data, DataType: dataType, Command: "update"}
 		case "delete":
 			dataType := console.ParseInputDataType()
-			key := console.ParseKey()
+			key := console.ParseStringWithLength("Key", 3)
 			return InputData{Key: key, DataType: dataType, Command: "delete"}
+		default:
+			fmt.Println("You've entered wrong command, please choose one from 'add', 'get', 'update', 'delete', 'exit'")
 		}
 	}
 }
 
+// Run - start command cycle
 func (console Console) Run() interface{} {
-	//console := NewConsole()
-	//loginPass := console.Start()
-	//fmt.Printf("Got loginPass: %v", loginPass)
-	//Send request for sing in, sign up
 	fmt.Printf("Successful authentification")
 	return console.ParseCommandCycle()
 

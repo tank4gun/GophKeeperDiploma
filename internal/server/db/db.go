@@ -4,6 +4,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 )
 
+// RunMigrations - run existing migrations
 func RunMigrations(dbDSN string) error {
 	m, err := migrate.New("file://db/migrations", dbDSN)
 	if err != nil {
